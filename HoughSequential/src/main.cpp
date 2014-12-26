@@ -10,9 +10,9 @@ using namespace cimg_library;
 // this methods prints the color values of an image
 void printImg(const CImg<double>& imageE)
 {
-	for (int i = 0; i < imageE._width; i++)
+	for (unsigned int i = 0; i < imageE._width; i++)
 	{
-		for (int j = 0; j < imageE._height; j++)
+		for (unsigned int j = 0; j < imageE._height; j++)
 		{
 			std::cout << imageE(i, j, 0, 0) << " ";
 		}
@@ -27,8 +27,8 @@ CImg<double> grayvalues(const CImg<double>& imageE)
 	CImg<double> grayImg(imageE._width, imageE._height, 1, 1);
 
 	double grayvalue = 0;
-	for (int i = 0; i < imageE._width; i++)
-		for (int j = 0; j < imageE._height; j++)
+	for (unsigned int i = 0; i < imageE._width; i++)
+		for (unsigned int j = 0; j < imageE._height; j++)
 			for (int k = 0; k < 3; k++)
 			{
 				// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
@@ -45,9 +45,9 @@ CImg<double> normalize(const CImg<double>& filterE)
 {
 	double sum;
 
-	for (int i = 0; i < filterE._width; i++)
+	for (unsigned int i = 0; i < filterE._width; i++)
 	{
-		for (int j = 0; j < filterE._height; j++)
+		for (unsigned int j = 0; j < filterE._height; j++)
 		{
 			sum += filterE(i, j, 0, 0);
 		}
@@ -55,9 +55,9 @@ CImg<double> normalize(const CImg<double>& filterE)
 
 	CImg<double> normalizedFilter(filterE._width, filterE._height);
 
-	for (int i = 0; i < filterE._width; i++)
+	for (unsigned int i = 0; i < filterE._width; i++)
 	{
-		for (int j = 0; j < filterE._height; j++)
+		for (unsigned int j = 0; j < filterE._height; j++)
 		{
 			normalizedFilter(i, j, 0, 0) = filterE(i, j, 0, 0) / sum;
 		}
@@ -121,8 +121,8 @@ CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<d
 {
 	CImg<double> strengthImg(sobelXE._width, sobelYE._height, 1, 1);
 
-	for (int i = 0; i < sobelXE._width; i++)
-		for (int j = 0; j < sobelXE._height; j++)
+	for (unsigned int i = 0; i < sobelXE._width; i++)
+		for (unsigned int j = 0; j < sobelXE._height; j++)
 			strengthImg(i,j,0,0) = sqrt(sobelXE(i,j,0,0) * sobelXE(i,j,0,0) + sobelYE(i,j,0,0) * sobelYE(i,j,0,0));
 
 	return strengthImg;
@@ -134,8 +134,8 @@ int getMaxValue(const CImg<double>& imageE)
 {
 	int max = INT_MIN;
 
-	for (int i = 0; i < imageE._width; i++)
-		for (int j = 0; j < imageE._height; j++)
+	for (unsigned int i = 0; i < imageE._width; i++)
+		for (unsigned int j = 0; j < imageE._height; j++)
 			if (imageE(i,j,0,0) > max) max = imageE(i,j,0,0);
 
 	return max;
@@ -147,8 +147,8 @@ int getMinValue(const CImg<double>& imageE)
 {
 	int min = INT_MAX;
 
-	for (int i = 0; i < imageE._width; i++)
-		for (int j = 0; j < imageE._height; j++)
+	for (unsigned int i = 0; i < imageE._width; i++)
+		for (unsigned int j = 0; j < imageE._height; j++)
 			if (imageE(i,j,0,0) < min) min = imageE(i,j,0,0);
 
 	return min;
@@ -166,8 +166,8 @@ CImg<double> makeBinaryImage(const CImg<double>& imageE)
 	int threshold = min + max;
 	threshold /= 3;
 
-	for (int i = 0; i < imageE._width; i++)
-		for (int j = 0; j < imageE._height; j++)
+	for (unsigned int i = 0; i < imageE._width; i++)
+		for (unsigned int j = 0; j < imageE._height; j++)
 			if (imageE(i,j,0,0) > threshold)
 				binaryImg(i,j,0,0) = 1;
 			else
