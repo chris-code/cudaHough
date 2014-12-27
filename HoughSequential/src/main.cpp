@@ -65,51 +65,35 @@ CImg<double> normalize(const CImg<double>& filterE)
 }
 
 
-// grayvalue Zero-padding convolution
-CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
+// grayvalue Wrap-Around convolution
+CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, const int offsetX, const int offsetY)
 {
-	// create new image that shall contain the convolved image
-	CImg<double> convolvedImg(imageE.width(), imageE.height(), 1, 1, 0);
-
-	// print error message, if the filter's height or width is odd
-	if (filterE.height() % 2 == 0 || filterE.width() % 2 == 0)
-	{
-		std::cerr << "The filter's width and height have to be odd." << std::endl;
-		return convolvedImg;
-	}
-
-	int halfFilW = filterE.width() / 2;
-	int halfFilH = filterE.height() / 2;
-
-	double tempSum;
-	int imgW, imgH, filW, filH;
+	CImg<double> convolvedImg(image.width(), image.height(), 1, 1);
 
 	// iterate over image
-	for (int i = 0; i < imageE.width(); i++)
+	for (int imgX = 0; imgX < image.width(); imgX++)
 	{
-		for (int j = 0; j < imageE.height(); j++)
+		for (int imgY = 0; imgY < image.height(); imgY++)
 		{
-			tempSum = 0;
+			double value = 0;
 
 			// iterate over filter
-			for (int fi = (-1) * halfFilW; fi <= halfFilW; fi++)
+			for (int filX = 0; filX < filter.width(); filX++)
 			{
-				imgW = i + fi;
-				filW = fi + halfFilW;
+				int posImgX = ((imgX - offsetX + filX) + image.width()) % image.width();
 
-				for (int fj = (-1) * halfFilH; fj <= halfFilH; fj++)
+				for (int filY = 0; filY < filter.height(); filY++)
 				{
-					imgH = j + fj;
-					filH = fj + halfFilH;
+					int posImgY = ((imgY - offsetY + filY) + image.height()) % image.height();
 
-					if (!(imgW < 0 || imgH < 0 || imgW >= imageE.width() || imgH >= imageE.height()))
-						tempSum += imageE(imgW, imgH, 0, 0) * filterE(filW, filH, 0, 0);
+					value += image(posImgX, posImgY, 0, 0) * filter(filX, filY, 0, 0);
 				}
 			}
 
-			convolvedImg(i, j, 0, 0) = tempSum;
+			convolvedImg(imgX, imgY, 0, 0) = value;
 		}
 	}
+
 	return convolvedImg;
 }
 
@@ -166,8 +150,8 @@ void houghTransform(const char* filename)
 	CImg<double> sobelY(sobelYarr, 3, 3);
 
 	// convolve Image with both Sobel filters
-	CImg<double> sobelXImg = convolve(grayImg, sobelX);
-	CImg<double> sobelYImg = convolve(grayImg, sobelY);
+	CImg<double> sobelXImg = convolve(grayImg, sobelX, 1, 1);
+	CImg<double> sobelYImg = convolve(grayImg, sobelY, 1, 1);
 
 	// display the results of the convolutions
 	CImgDisplay sobelXDisp(sobelXImg, "Sobel X");
