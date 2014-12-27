@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <utility>
+#include <ctime>
 #include "HoughParameterSet.h"
 
 using namespace cimg_library;
@@ -19,7 +20,7 @@ void printImg(const CImg<T>& imageE)
 	{
 		for (int j = 0; j < imageE.height(); j++)
 		{
-			std::cout << imageE(i, j, 0, 0) << " ";
+			std::cout << imageE(i, j, 0, 0) << "\t";
 		}
 		std::cout << std::endl;
 	}
@@ -132,7 +133,7 @@ CImg<bool> makeBinaryImage(const CImg<double>& imageE, const double threshold)
 }
 
 
-CImg<bool> preprocess(const char* filename)
+CImg<bool> preprocess(const char* filename, double thresholdDivisor = 2)
 {
 	// load image from filename
 	CImg<double> img(filename);
@@ -155,9 +156,33 @@ CImg<bool> preprocess(const char* filename)
 	// calculate the gradient strength
 	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
 
-	// calculate the binary image of the gradient strength image
-	double threshold = (strengthImg.min() + strengthImg.max()) / 2;
+	// create binomial filter
+//	double binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
+//	CImg<double> binomialUnnormalized(binomialArr, 3, 3);
 
+	double bino1DArr[15] = {1, 2, 1};
+	double bino2DArr[9];
+
+	int c = 0;
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			bino2DArr[c] = bino1DArr[i] * bino1DArr[j];
+			c++;
+		}
+	}
+
+	CImg<double> binomialUnnormalized(bino2DArr, 3, 3);
+	CImg<double> binomial = normalize(binomialUnnormalized);
+
+	// smooth image
+	strengthImg = convolve(strengthImg, binomial, 4, 4);
+
+	// calculate the binary image of the gradient strength image
+	double threshold = (strengthImg.min() + strengthImg.max()) / thresholdDivisor;
+
+	// make and return binary image
 	return makeBinaryImage(strengthImg, threshold);
 }
 
@@ -165,14 +190,15 @@ CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, const HoughParam
 {
 	int dimTheta = (p.maxTheta - p.minTheta) * p.stepsPerRadian;
 	int dimR = (p.maxR - p.minR) * p.stepsPerPixel;
+	int borderExclude = 5;
 
 	double thetaStepsize = 1 / p.stepsPerRadian;
 
 	CImg<long> accumulatorArray(dimTheta, dimR, 1, 1, 0);
 
-	for (int x = 0; x < binaryImg.width(); x++)
+	for (int x = borderExclude; x < binaryImg.width() - borderExclude; x++)
 	{
-		for (int y = 0; y < binaryImg.height(); y++)
+		for (int y = borderExclude; y < binaryImg.height() - borderExclude; y++)
 		{
 			if (binaryImg(x, y, 0, 0))
 			{
@@ -258,7 +284,7 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k)
 {
 	// compute local maxima
-	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, 2);
+	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, 10);
 
 	// sort them
 	std::sort(maxima.begin(), maxima.end(), compareLines);
@@ -271,8 +297,8 @@ std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArra
 
 	for (int i = 0; i < k; i++)
 	{
-		double theta = p.minTheta + stepSizeTheta * maxima[k][0];
-		double r = p.minR + stepSizeR * maxima[k][1];
+		double theta = p.minTheta + stepSizeTheta * maxima[i][0];
+		double r = p.minR + stepSizeR * maxima[i][1];
 
 		kBest.push_back(std::make_pair(theta, r));
  	}
@@ -281,35 +307,100 @@ std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArra
 }
 
 
+void drawLine(CImg<unsigned char>& image, const double theta, const double r, double* color)
+{
+	// it's not a vertical line
+	if ((theta >= cimg::PI / 4 && theta <= cimg::PI * 3 / 4) || (theta >= cimg::PI * 5 / 4 && theta <= cimg::PI * 7 / 4))
+	{
+		for (int x = 0; x < image.width(); x++)
+		{
+			int y = round((r - x * cos(theta)) / sin(theta));
+
+			if (y >= 0 && y < image.height())
+			{
+				image(x,y,0,0) = color[0];
+				image(x,y,0,1) = color[1];
+				image(x,y,0,2) = color[2];
+			}
+		}
+	}
+	// it may be a vertical line
+	else
+	{
+		for (int y = 0; y < image.height(); y++)
+		{
+			int x = round((r - y * sin(theta)) / cos(theta));
+
+			if (x >= 0 && x < image.width())
+			{
+				image(x,y,0,0) = color[2];
+				image(x,y,0,1) = color[1];
+				image(x,y,0,2) = color[0];
+			}
+		}
+	}
+}
+
+void drawLines(CImg<unsigned char>& image, std::vector< std::pair<double, double> > lines)
+{
+	double color[3] = {255, 0, 0};
+
+	for (int i = 0; i < lines.size(); i++)
+	{
+		drawLine(image, lines[i].first, lines[i].second, color);
+//		color[0] = color[0] - 5;
+	}
+}
+
+
 int main(int argc, char **argv)
 {
-	CImg<bool> binaryImg = preprocess("images/pidgey.jpg");
+	clock_t preprocessStart = std::clock();
+	CImg<bool> binaryImg = preprocess("images/stoppschild3.jpg", 4);
+	clock_t preprocessEnd = std::clock();
+
 	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
 	binaryImgDisp.move(50, 50);
 
+	std::cout << "Preprocess time: " << double(preprocessEnd - preprocessStart) / CLOCKS_PER_SEC << std::endl;
+
 	// Define parameters for the Hough Transformation
 	double minTheta = 0;
-	double maxTheta = 2 * cimg::PI;
-	double stepsPerRadian = 57.295;
-	double stepsPerPixel = 0.8;
+	double maxTheta = 1 * cimg::PI;
+	double stepsPerRadian = 57.295 * 2;
+	double stepsPerPixel = 2;
 	double maxR = sqrt(binaryImg.width() * binaryImg.width() + binaryImg.height() * binaryImg.height());
 	double minR = -maxR;
 
 	HoughParameterSet p(minTheta, maxTheta, stepsPerRadian, stepsPerPixel, minR, maxR);
 
+	clock_t houghStart = std::clock();
 
 	CImg<long> accumulatorArray = computeAccumulatorArray(binaryImg, p);
+
+	clock_t houghEnd = std::clock();
+
+	std::cout << "Hough time: " << double(houghEnd - houghStart) / CLOCKS_PER_SEC << std::endl;
 
 	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
 	accDisplay.move(400,50);
 
-	CImg<unsigned char> bestLinesImg = binaryToColorImg(binaryImg);
-	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
+	clock_t drawStart = std::clock();
 
-	std::vector< std::pair<double, double> > best10 = getKBestLines(accumulatorArray, p, 10);
+	CImg<unsigned char> bestLinesImg = binaryToColorImg(binaryImg);
+
+	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16);
+	drawLines(bestLinesImg, best);
+
+	clock_t drawEnd = std::clock();
+
+	std::cout << "Draw time: " << double(drawEnd - drawStart) / CLOCKS_PER_SEC << std::endl;
+
+	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
+	bestLinesDisp.move(0, 0);
 
 	// Wait until display is closed
-	while (!binaryImgDisp._is_closed)
-		binaryImgDisp.wait();
+	while (!bestLinesDisp._is_closed)
+		bestLinesDisp.wait();
 }
 
