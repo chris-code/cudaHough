@@ -8,7 +8,8 @@ using namespace cimg_library;
 
 
 // this methods prints the color values of an image
-void printImg(const CImg<double>& imageE)
+template <typename T>
+void printImg(const CImg<T>& imageE)
 {
 	for (int i = 0; i < imageE.width(); i++)
 	{
@@ -112,22 +113,22 @@ CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<d
 
 
 // returns a binary image given a grayvalue image
-CImg<double> makeBinaryImage(const CImg<double>& imageE, const double threshold)
+CImg<bool> makeBinaryImage(const CImg<double>& imageE, const double threshold)
 {
-	CImg<double> binaryImg(imageE.width(), imageE.height(), 1, 1);
+	CImg<bool> binaryImg(imageE.width(), imageE.height(), 1, 1);
 
 	for (int i = 0; i < imageE.width(); i++)
 		for (int j = 0; j < imageE.height(); j++)
 			if (imageE(i,j,0,0) > threshold)
-				binaryImg(i,j,0,0) = 1;
+				binaryImg(i,j,0,0) = true;
 			else
-				binaryImg(i,j,0,0) = 0;
+				binaryImg(i,j,0,0) = false;
 
 	return binaryImg;
 }
 
 
-CImg<double> computeBinaryImage(const char* filename)
+CImg<bool> preprocess(const char* filename)
 {
 	// load image from filename
 	CImg<double> img(filename);
@@ -151,22 +152,67 @@ CImg<double> computeBinaryImage(const char* filename)
 	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
 
 	// calculate the binary image of the gradient strength image
-	double min, max;
-	max = strengthImg.min_max(min);
-	double threshold = (min + max) / 2;
-	CImg<double> binaryImg = makeBinaryImage(strengthImg, threshold);
+	double threshold = (strengthImg.min() + strengthImg.max()) / 2;
 
-	return binaryImg;
+	return makeBinaryImage(strengthImg, threshold);
+}
+
+CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, double stepsPerRadian, double stepsPerPixel)
+{
+//	int dimTheta = 360 * stepsPerDegree;
+//	int dimR = (int) ceil(sqrt(binaryImg.width() * binaryImg.width() + binaryImg.height() * binaryImg.height()) * stepsPerPixel);
+
+	double minTheta = 0;
+	double maxTheta = 2 * cimg::PI;
+	double thetaStepsize = 1 / stepsPerRadian;
+	double minR = -binaryImg.width() - binaryImg.height();
+	double maxR = binaryImg.width() + binaryImg.height();
+
+	int dimTheta = (maxTheta - minTheta) * stepsPerRadian;
+	int dimR = (maxR - minR) * stepsPerPixel;
+
+	CImg<long> accumulatorArray(dimTheta, dimR, 1, 1, 0);
+
+	for (int x = 0; x < binaryImg.width(); x++)
+	{
+		for (int y = 0; y < binaryImg.height(); y++)
+		{
+			if (binaryImg(x, y, 0, 0))
+			{
+				for (double theta = minTheta; theta <= maxTheta; theta += thetaStepsize)
+				{
+					double r = x * cos(theta) + y * sin(theta);
+					int thetaIdx = int((theta - minTheta) * stepsPerRadian);
+					int rIdx = int((r - minR) * stepsPerPixel);
+					accumulatorArray(thetaIdx, rIdx, 0, 0) = accumulatorArray(thetaIdx, rIdx, 0, 0) +  1;
+				}
+			}
+		}
+	}
+
+
+	return accumulatorArray;
 }
 
 
 int main(int argc, char **argv)
 {
-	CImg<double> binaryImg = computeBinaryImage("pidgey.jpg");
+	CImg<bool> binaryImg = preprocess("pidgey.jpg");
 	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
 	binaryImgDisp.move(50, 50);
+
+	CImg<long> accumulatorArray = computeAccumulatorArray(binaryImg, 120, 0.8);
+
+	std::cout << accumulatorArray.width() << " " << accumulatorArray.height() << std::endl;
+
+	std::cout << "Max: " << accumulatorArray.max() << std::endl << "Min: " << accumulatorArray.min() << std::endl;
+
+	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
+	accDisplay.move(400,50);
+
+
+	// Wait until display is closed
 	while (!binaryImgDisp._is_closed)
 		binaryImgDisp.wait();
-
 }
 
