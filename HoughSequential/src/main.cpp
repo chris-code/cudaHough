@@ -24,18 +24,16 @@ void printImg(const CImg<double>& imageE)
 // this method transforms a rgb-color image to an grayvalue image
 CImg<double> grayvalues(const CImg<double>& imageE)
 {
-	CImg<double> grayImg(imageE._width, imageE._height, 1, 1);
+	CImg<double> grayImg(imageE.width(), imageE.height(), 1, 1);
 
 	double grayvalue = 0;
 	for (int i = 0; i < imageE.width(); i++)
 		for (int j = 0; j < imageE.height(); j++)
-			for (int k = 0; k < 3; k++)
-			{
-				// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
-				grayvalue = 0.21 * imageE(i, j, 0, 0) + 0.72 * imageE(i, j, 0, 1) + 0.07 * imageE(i, j, 0, 2);
-				grayImg(i,j,0,0) = grayvalue;
-			}
-
+		{
+			// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
+			grayvalue = 0.21 * imageE(i, j, 0, 0) + 0.72 * imageE(i, j, 0, 1) + 0.07 * imageE(i, j, 0, 2);
+			grayImg(i,j,0,0) = grayvalue;
+		}
 	return grayImg;
 }
 
@@ -96,15 +94,15 @@ CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
 			// iterate over filter
 			for (int fi = (-1) * halfFilW; fi <= halfFilW; fi++)
 			{
+				imgW = i + fi;
+				filW = fi + halfFilW;
 
 				for (int fj = (-1) * halfFilH; fj <= halfFilH; fj++)
 				{
-					imgW = i + fi,
-					imgH = j + fj,
-					filW = fi + halfFilW,
+					imgH = j + fj;
 					filH = fj + halfFilH;
 
-					if (!(imgW < 0 || imgH < 0 || imgW > imageE.width() || imgH > imageE.height()))
+					if (!(imgW < 0 || imgH < 0 || imgW >= imageE.width() || imgH >= imageE.height()))
 						tempSum += imageE(imgW, imgH, 0, 0) * filterE(filW, filH, 0, 0);
 				}
 			}
