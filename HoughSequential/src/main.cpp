@@ -156,15 +156,9 @@ int getMinValue(const CImg<double>& imageE)
 
 
 // returns a binary image given a grayvalue image
-CImg<double> makeBinaryImage(const CImg<double>& imageE)
+CImg<double> makeBinaryImage(const CImg<double>& imageE, double threshold)
 {
 	CImg<double> binaryImg(imageE.width(), imageE.height(), 1, 1);
-
-	int max = getMaxValue(imageE);
-	int min = getMinValue(imageE);
-
-	int threshold = min + max;
-	threshold /= 2;
 
 	for (int i = 0; i < imageE.width(); i++)
 		for (int j = 0; j < imageE.height(); j++)
@@ -212,7 +206,8 @@ void houghTransform(const char* filename)
 	CImgDisplay gradientStrengthDisp(strengthImg, "Gradientenstaerke");
 
 	// calculate the binary image of the gradient strength image
-	CImg<double> binaryImg = makeBinaryImage(strengthImg);
+	double threshold = (getMinValue(strengthImg) + getMaxValue(strengthImg)) / 2;
+	CImg<double> binaryImg = makeBinaryImage(strengthImg, threshold);
 	CImgDisplay binaryImgDisp(binaryImg, "Binaerbild");
 
 	// wait until the display with the original image is closed
