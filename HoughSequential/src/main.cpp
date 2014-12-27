@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <iostream>
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include "HoughParameterSet.h"
 
 using namespace cimg_library;
 
@@ -157,19 +161,12 @@ CImg<bool> preprocess(const char* filename)
 	return makeBinaryImage(strengthImg, threshold);
 }
 
-CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, double stepsPerRadian, double stepsPerPixel)
+CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, const HoughParameterSet& p)
 {
-//	int dimTheta = 360 * stepsPerDegree;
-//	int dimR = (int) ceil(sqrt(binaryImg.width() * binaryImg.width() + binaryImg.height() * binaryImg.height()) * stepsPerPixel);
+	int dimTheta = (p.maxTheta - p.minTheta) * p.stepsPerRadian;
+	int dimR = (p.maxR - p.minR) * p.stepsPerPixel;
 
-	double minTheta = 0;
-	double maxTheta = 2 * cimg::PI;
-	double thetaStepsize = 1 / stepsPerRadian;
-	double minR = -binaryImg.width() - binaryImg.height();
-	double maxR = binaryImg.width() + binaryImg.height();
-
-	int dimTheta = (maxTheta - minTheta) * stepsPerRadian;
-	int dimR = (maxR - minR) * stepsPerPixel;
+	double thetaStepsize = 1 / p.stepsPerRadian;
 
 	CImg<long> accumulatorArray(dimTheta, dimR, 1, 1, 0);
 
@@ -179,37 +176,137 @@ CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, double stepsPerR
 		{
 			if (binaryImg(x, y, 0, 0))
 			{
-				for (double theta = minTheta; theta <= maxTheta; theta += thetaStepsize)
+				for (double theta = p.minTheta; theta <= p.maxTheta; theta += thetaStepsize)
 				{
 					double r = x * cos(theta) + y * sin(theta);
-					int thetaIdx = int((theta - minTheta) * stepsPerRadian);
-					int rIdx = int((r - minR) * stepsPerPixel);
+					int thetaIdx = int((theta - p.minTheta) * p.stepsPerRadian);
+					int rIdx = int((r - p.minR) * p.stepsPerPixel);
 					accumulatorArray(thetaIdx, rIdx, 0, 0) = accumulatorArray(thetaIdx, rIdx, 0, 0) +  1;
 				}
 			}
 		}
 	}
 
-
 	return accumulatorArray;
+}
+
+
+CImg<unsigned char> binaryToColorImg(const CImg<bool>& binaryImg)
+{
+	CImg<unsigned char> colorImg(binaryImg.width(), binaryImg.height(), 1, 3, 0);
+
+	for (int x = 0; x < binaryImg.width(); x++)
+	{
+		for (int y = 0; y < binaryImg.height(); y++)
+		{
+			if (binaryImg(x, y, 0, 0))
+			{
+				for (int k = 0; k < 3; k++)
+					colorImg(x, y, 0, k) = 255;
+			}
+		}
+	}
+
+	return colorImg;
+}
+
+template <typename T>
+std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int radius)
+{
+	std::vector< std::vector<int> > maxima;
+
+	for (int x = 0; x < image.width(); x++)
+	{
+		for (int y = 0; y < image.height(); y++)
+		{
+			bool isMaximum = true;
+
+			for (int i = -radius; i <= radius; i++)
+			{
+				int posX = ((x + i) + image.width()) % image.width();
+
+				for (int j = -radius; j <= radius; j++)
+				{
+					int posY = ((y + j) + image.height()) % image.height();
+
+					if (image(posX, posY, 0, 0) >= image(x, y, 0, 0) && (posX != x || posY != y))
+						isMaximum = false;
+				}
+			}
+
+			if (isMaximum)
+			{
+				std::vector<int> m;
+				m.push_back(x);
+				m.push_back(y);
+				m.push_back(image(x,y,0,0));
+
+				maxima.push_back(m);
+			}
+
+		}
+	}
+
+	return maxima;
+}
+
+bool compareLines(std::vector<int> v1, std::vector<int> v2)
+{
+	return v1[2] > v2[2];
+}
+
+std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k)
+{
+	// compute local maxima
+	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, 2);
+
+	// sort them
+	std::sort(maxima.begin(), maxima.end(), compareLines);
+
+	// extract the k best lines
+	std::vector< std::pair<double, double> > kBest;
+
+	double stepSizeTheta = 1 / p.stepsPerRadian;
+	double stepSizeR = 1 / p.stepsPerPixel;
+
+	for (int i = 0; i < k; i++)
+	{
+		double theta = p.minTheta + stepSizeTheta * maxima[k][0];
+		double r = p.minR + stepSizeR * maxima[k][1];
+
+		kBest.push_back(std::make_pair(theta, r));
+ 	}
+
+	return kBest;
 }
 
 
 int main(int argc, char **argv)
 {
-	CImg<bool> binaryImg = preprocess("pidgey.jpg");
+	CImg<bool> binaryImg = preprocess("images/pidgey.jpg");
 	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
 	binaryImgDisp.move(50, 50);
 
-	CImg<long> accumulatorArray = computeAccumulatorArray(binaryImg, 120, 0.8);
+	// Define parameters for the Hough Transformation
+	double minTheta = 0;
+	double maxTheta = 2 * cimg::PI;
+	double stepsPerRadian = 57.295;
+	double stepsPerPixel = 0.8;
+	double maxR = sqrt(binaryImg.width() * binaryImg.width() + binaryImg.height() * binaryImg.height());
+	double minR = -maxR;
 
-	std::cout << accumulatorArray.width() << " " << accumulatorArray.height() << std::endl;
+	HoughParameterSet p(minTheta, maxTheta, stepsPerRadian, stepsPerPixel, minR, maxR);
 
-	std::cout << "Max: " << accumulatorArray.max() << std::endl << "Min: " << accumulatorArray.min() << std::endl;
+
+	CImg<long> accumulatorArray = computeAccumulatorArray(binaryImg, p);
 
 	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
 	accDisplay.move(400,50);
 
+	CImg<unsigned char> bestLinesImg = binaryToColorImg(binaryImg);
+	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
+
+	std::vector< std::pair<double, double> > best10 = getKBestLines(accumulatorArray, p, 10);
 
 	// Wait until display is closed
 	while (!binaryImgDisp._is_closed)
