@@ -10,9 +10,9 @@ using namespace cimg_library;
 // this methods prints the color values of an image
 void printImg(const CImg<double>& imageE)
 {
-	for (unsigned int i = 0; i < imageE._width; i++)
+	for (int i = 0; i < imageE.width(); i++)
 	{
-		for (unsigned int j = 0; j < imageE._height; j++)
+		for (int j = 0; j < imageE.height(); j++)
 		{
 			std::cout << imageE(i, j, 0, 0) << " ";
 		}
@@ -27,8 +27,8 @@ CImg<double> grayvalues(const CImg<double>& imageE)
 	CImg<double> grayImg(imageE._width, imageE._height, 1, 1);
 
 	double grayvalue = 0;
-	for (unsigned int i = 0; i < imageE._width; i++)
-		for (unsigned int j = 0; j < imageE._height; j++)
+	for (int i = 0; i < imageE.width(); i++)
+		for (int j = 0; j < imageE.height(); j++)
 			for (int k = 0; k < 3; k++)
 			{
 				// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
@@ -45,19 +45,19 @@ CImg<double> normalize(const CImg<double>& filterE)
 {
 	double sum;
 
-	for (unsigned int i = 0; i < filterE._width; i++)
+	for (int i = 0; i < filterE.width(); i++)
 	{
-		for (unsigned int j = 0; j < filterE._height; j++)
+		for (int j = 0; j < filterE.height(); j++)
 		{
 			sum += filterE(i, j, 0, 0);
 		}
 	}
 
-	CImg<double> normalizedFilter(filterE._width, filterE._height);
+	CImg<double> normalizedFilter(filterE.width(), filterE.height());
 
-	for (unsigned int i = 0; i < filterE._width; i++)
+	for (int i = 0; i < filterE.width(); i++)
 	{
-		for (unsigned int j = 0; j < filterE._height; j++)
+		for (int j = 0; j < filterE.height(); j++)
 		{
 			normalizedFilter(i, j, 0, 0) = filterE(i, j, 0, 0) / sum;
 		}
@@ -71,25 +71,25 @@ CImg<double> normalize(const CImg<double>& filterE)
 CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
 {
 	// create new image that shall contain the convolved image
-	CImg<double> convolvedImg(imageE._width, imageE._height, 1, 1, 0);
+	CImg<double> convolvedImg(imageE.width(), imageE.height(), 1, 1, 0);
 
 	// print error message, if the filter's height or width is odd
-	if (filterE._height % 2 == 0 || filterE._width % 2 == 0)
+	if (filterE.height() % 2 == 0 || filterE.width() % 2 == 0)
 	{
 		std::cerr << "The filter's width and height have to be odd." << std::endl;
 		return convolvedImg;
 	}
 
-	int halfFilW = filterE._width / 2;
-	int halfFilH = filterE._height / 2;
+	int halfFilW = filterE.width() / 2;
+	int halfFilH = filterE.height() / 2;
 
 	double tempSum;
 	int imgW, imgH, filW, filH;
 
 	// iterate over image
-	for (int i = 0; i < imageE._width; i++)
+	for (int i = 0; i < imageE.width(); i++)
 	{
-		for (int j = 0; j < imageE._height; j++)
+		for (int j = 0; j < imageE.height(); j++)
 		{
 			tempSum = 0;
 
@@ -104,7 +104,7 @@ CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
 					filW = fi + halfFilW,
 					filH = fj + halfFilH;
 
-					if (!(imgW < 0 || imgH < 0 || imgW > imageE._width || imgH > imageE._height))
+					if (!(imgW < 0 || imgH < 0 || imgW > imageE.width() || imgH > imageE.height()))
 						tempSum += imageE(imgW, imgH, 0, 0) * filterE(filW, filH, 0, 0);
 				}
 			}
@@ -119,10 +119,10 @@ CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
 // calculates the gradient strength of an grayvalue image given the results of the convolution with SobelX and SobelY
 CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<double>& sobelYE)
 {
-	CImg<double> strengthImg(sobelXE._width, sobelYE._height, 1, 1);
+	CImg<double> strengthImg(sobelXE.width(), sobelYE.height(), 1, 1);
 
-	for (unsigned int i = 0; i < sobelXE._width; i++)
-		for (unsigned int j = 0; j < sobelXE._height; j++)
+	for (int i = 0; i < sobelXE.width(); i++)
+		for (int j = 0; j < sobelXE.height(); j++)
 			strengthImg(i,j,0,0) = sqrt(sobelXE(i,j,0,0) * sobelXE(i,j,0,0) + sobelYE(i,j,0,0) * sobelYE(i,j,0,0));
 
 	return strengthImg;
@@ -134,8 +134,8 @@ int getMaxValue(const CImg<double>& imageE)
 {
 	int max = INT_MIN;
 
-	for (unsigned int i = 0; i < imageE._width; i++)
-		for (unsigned int j = 0; j < imageE._height; j++)
+	for (int i = 0; i < imageE.width(); i++)
+		for (int j = 0; j < imageE.height(); j++)
 			if (imageE(i,j,0,0) > max) max = imageE(i,j,0,0);
 
 	return max;
@@ -147,8 +147,8 @@ int getMinValue(const CImg<double>& imageE)
 {
 	int min = INT_MAX;
 
-	for (unsigned int i = 0; i < imageE._width; i++)
-		for (unsigned int j = 0; j < imageE._height; j++)
+	for (int i = 0; i < imageE.width(); i++)
+		for (int j = 0; j < imageE.height(); j++)
 			if (imageE(i,j,0,0) < min) min = imageE(i,j,0,0);
 
 	return min;
@@ -158,16 +158,16 @@ int getMinValue(const CImg<double>& imageE)
 // returns a binary image given a grayvalue image
 CImg<double> makeBinaryImage(const CImg<double>& imageE)
 {
-	CImg<double> binaryImg(imageE._width, imageE._height, 1, 1);
+	CImg<double> binaryImg(imageE.width(), imageE.height(), 1, 1);
 
 	int max = getMaxValue(imageE);
 	int min = getMinValue(imageE);
 
 	int threshold = min + max;
-	threshold /= 3;
+	threshold /= 2;
 
-	for (unsigned int i = 0; i < imageE._width; i++)
-		for (unsigned int j = 0; j < imageE._height; j++)
+	for (int i = 0; i < imageE.width(); i++)
+		for (int j = 0; j < imageE.height(); j++)
 			if (imageE(i,j,0,0) > threshold)
 				binaryImg(i,j,0,0) = 1;
 			else
@@ -211,7 +211,7 @@ void houghTransform(const char* filename)
 	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
 	CImgDisplay gradientStrengthDisp(strengthImg, "Gradientenstaerke");
 
-	// calcualte the binary image of the gradient strength image
+	// calculate the binary image of the gradient strength image
 	CImg<double> binaryImg = makeBinaryImage(strengthImg);
 	CImgDisplay binaryImgDisp(binaryImg, "Binaerbild");
 
@@ -223,7 +223,6 @@ void houghTransform(const char* filename)
 
 int main(int argc, char **argv)
 {
-	houghTransform("charizard.jpg");
-	houghTransform("mudkip.jpg");
+	houghTransform("pidgey.jpg");
 }
 
