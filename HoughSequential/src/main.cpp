@@ -14,13 +14,13 @@ using namespace cimg_library;
 
 // this methods prints the color values of an image
 template <typename T>
-void printImg(const CImg<T>& imageE)
+void printImg(const CImg<T>& image)
 {
-	for (int i = 0; i < imageE.width(); i++)
+	for (int i = 0; i < image.width(); i++)
 	{
-		for (int j = 0; j < imageE.height(); j++)
+		for (int j = 0; j < image.height(); j++)
 		{
-			std::cout << imageE(i, j, 0, 0) << "\t";
+			std::cout << image(i, j, 0, 0) << "\t";
 		}
 		std::cout << std::endl;
 	}
@@ -28,16 +28,16 @@ void printImg(const CImg<T>& imageE)
 
 
 // this method transforms a rgb-color image to an grayvalue image
-CImg<double> grayvalues(const CImg<double>& imageE)
+CImg<double> grayvalues(const CImg<double>& image)
 {
-	CImg<double> grayImg(imageE.width(), imageE.height(), 1, 1);
+	CImg<double> grayImg(image.width(), image.height(), 1, 1);
 
 	double grayvalue = 0;
-	for (int i = 0; i < imageE.width(); i++)
-		for (int j = 0; j < imageE.height(); j++)
+	for (int i = 0; i < image.width(); i++)
+		for (int j = 0; j < image.height(); j++)
 		{
 			// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
-			grayvalue = 0.21 * imageE(i, j, 0, 0) + 0.72 * imageE(i, j, 0, 1) + 0.07 * imageE(i, j, 0, 2);
+			grayvalue = 0.21 * image(i, j, 0, 0) + 0.72 * image(i, j, 0, 1) + 0.07 * image(i, j, 0, 2);
 			grayImg(i,j,0,0) = grayvalue;
 		}
 	return grayImg;
@@ -45,25 +45,25 @@ CImg<double> grayvalues(const CImg<double>& imageE)
 
 
 // this methods normalizes an image so that the sum of its pixels equals 1
-CImg<double> normalize(const CImg<double>& filterE)
+CImg<double> normalize(const CImg<double>& filter)
 {
 	double sum;
 
-	for (int i = 0; i < filterE.width(); i++)
+	for (int i = 0; i < filter.width(); i++)
 	{
-		for (int j = 0; j < filterE.height(); j++)
+		for (int j = 0; j < filter.height(); j++)
 		{
-			sum += filterE(i, j, 0, 0);
+			sum += filter(i, j, 0, 0);
 		}
 	}
 
-	CImg<double> normalizedFilter(filterE.width(), filterE.height());
+	CImg<double> normalizedFilter(filter.width(), filter.height());
 
-	for (int i = 0; i < filterE.width(); i++)
+	for (int i = 0; i < filter.width(); i++)
 	{
-		for (int j = 0; j < filterE.height(); j++)
+		for (int j = 0; j < filter.height(); j++)
 		{
-			normalizedFilter(i, j, 0, 0) = filterE(i, j, 0, 0) / sum;
+			normalizedFilter(i, j, 0, 0) = filter(i, j, 0, 0) / sum;
 		}
 	}
 
@@ -105,26 +105,26 @@ CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, con
 
 
 // calculates the gradient strength of an grayvalue image given the results of the convolution with SobelX and SobelY
-CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<double>& sobelYE)
+CImg<double> calculateGradientStrength(const CImg<double>& sobelX, const CImg<double>& sobelY)
 {
-	CImg<double> strengthImg(sobelXE.width(), sobelXE.height(), 1, 1);
+	CImg<double> strengthImg(sobelX.width(), sobelX.height(), 1, 1);
 
-	for (int i = 0; i < sobelXE.width(); i++)
-		for (int j = 0; j < sobelXE.height(); j++)
-			strengthImg(i,j,0,0) = sqrt(sobelXE(i,j,0,0) * sobelXE(i,j,0,0) + sobelYE(i,j,0,0) * sobelYE(i,j,0,0));
+	for (int i = 0; i < sobelX.width(); i++)
+		for (int j = 0; j < sobelX.height(); j++)
+			strengthImg(i,j,0,0) = sqrt(sobelX(i,j,0,0) * sobelX(i,j,0,0) + sobelY(i,j,0,0) * sobelY(i,j,0,0));
 
 	return strengthImg;
 }
 
 
 // returns a binary image given a grayvalue image
-CImg<bool> makeBinaryImage(const CImg<double>& imageE, const double threshold)
+CImg<bool> makeBinaryImage(const CImg<double>& image, const double threshold)
 {
-	CImg<bool> binaryImg(imageE.width(), imageE.height(), 1, 1);
+	CImg<bool> binaryImg(image.width(), image.height(), 1, 1);
 
-	for (int i = 0; i < imageE.width(); i++)
-		for (int j = 0; j < imageE.height(); j++)
-			if (imageE(i,j,0,0) > threshold)
+	for (int i = 0; i < image.width(); i++)
+		for (int j = 0; j < image.height(); j++)
+			if (image(i,j,0,0) > threshold)
 				binaryImg(i,j,0,0) = true;
 			else
 				binaryImg(i,j,0,0) = false;
