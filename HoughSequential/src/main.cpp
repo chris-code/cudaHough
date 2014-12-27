@@ -127,21 +127,13 @@ CImg<double> makeBinaryImage(const CImg<double>& imageE, const double threshold)
 }
 
 
-void houghTransform(const char* filename)
+CImg<double> computeBinaryImage(const char* filename)
 {
-	std::cout << "Das Programm terminiert, wenn das Originalbild geschlossen wird." << std::endl;
-
 	// load image from filename
 	CImg<double> img(filename);
 
 	// convert it to a grayvalue image
 	CImg<double> grayImg = grayvalues(img);
-
-	// show both images
-	CImgDisplay mainDisp(img, "Originalbild", 0);
-	mainDisp.move(50, 50);
-	CImgDisplay grayDisp(grayImg, "Grauwertbild", 0);
-	grayDisp.move(400, 50);
 
 	// create Sobel X filter
 	double sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
@@ -155,34 +147,26 @@ void houghTransform(const char* filename)
 	CImg<double> sobelXImg = convolve(grayImg, sobelX, 1, 1);
 	CImg<double> sobelYImg = convolve(grayImg, sobelY, 1, 1);
 
-	// display the results of the convolutions
-	CImgDisplay sobelXDisp(sobelXImg, "Sobel X");
-	sobelXDisp.move(750, 50);
-	CImgDisplay sobelYDisp(sobelYImg, "Sobel Y");
-	sobelYDisp.move(50,430);
-
 	// calculate the gradient strength
 	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
-	CImgDisplay gradientStrengthDisp(strengthImg, "Gradientenstaerke");
-	gradientStrengthDisp.move(400, 430);
 
 	// calculate the binary image of the gradient strength image
 	double min, max;
 	max = strengthImg.min_max(min);
 	double threshold = (min + max) / 2;
 	CImg<double> binaryImg = makeBinaryImage(strengthImg, threshold);
-	CImgDisplay binaryImgDisp(binaryImg, "Binaerbild");
-	binaryImgDisp.move(750, 430);
 
-	// wait until the display with the original image is closed
-	while (!mainDisp._is_closed)
-		mainDisp.wait();
+	return binaryImg;
 }
 
 
 int main(int argc, char **argv)
 {
-	houghTransform("pidgey.jpg");
-	houghTransform("charizard.jpg");
+	CImg<double> binaryImg = computeBinaryImage("pidgey.jpg");
+	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
+	binaryImgDisp.move(50, 50);
+	while (!binaryImgDisp._is_closed)
+		binaryImgDisp.wait();
+
 }
 
