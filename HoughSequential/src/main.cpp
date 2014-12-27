@@ -117,7 +117,7 @@ CImg<double> convolve(const CImg<double>& imageE, const CImg<double>& filterE)
 // calculates the gradient strength of an grayvalue image given the results of the convolution with SobelX and SobelY
 CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<double>& sobelYE)
 {
-	CImg<double> strengthImg(sobelXE.width(), sobelYE.height(), 1, 1);
+	CImg<double> strengthImg(sobelXE.width(), sobelXE.height(), 1, 1);
 
 	for (int i = 0; i < sobelXE.width(); i++)
 		for (int j = 0; j < sobelXE.height(); j++)
@@ -127,34 +127,8 @@ CImg<double> calculateGradientStrength(const CImg<double>& sobelXE, const CImg<d
 }
 
 
-// returns maximal value of an grayvalue image
-int getMaxValue(const CImg<double>& imageE)
-{
-	int max = INT_MIN;
-
-	for (int i = 0; i < imageE.width(); i++)
-		for (int j = 0; j < imageE.height(); j++)
-			if (imageE(i,j,0,0) > max) max = imageE(i,j,0,0);
-
-	return max;
-}
-
-
-// returns minimal value of an grayvalue image
-int getMinValue(const CImg<double>& imageE)
-{
-	int min = INT_MAX;
-
-	for (int i = 0; i < imageE.width(); i++)
-		for (int j = 0; j < imageE.height(); j++)
-			if (imageE(i,j,0,0) < min) min = imageE(i,j,0,0);
-
-	return min;
-}
-
-
 // returns a binary image given a grayvalue image
-CImg<double> makeBinaryImage(const CImg<double>& imageE, double threshold)
+CImg<double> makeBinaryImage(const CImg<double>& imageE, const double threshold)
 {
 	CImg<double> binaryImg(imageE.width(), imageE.height(), 1, 1);
 
@@ -204,7 +178,9 @@ void houghTransform(const char* filename)
 	CImgDisplay gradientStrengthDisp(strengthImg, "Gradientenstaerke");
 
 	// calculate the binary image of the gradient strength image
-	double threshold = (getMinValue(strengthImg) + getMaxValue(strengthImg)) / 2;
+	double min, max;
+	max = strengthImg.min_max(min);
+	double threshold = (min + max) / 2;
 	CImg<double> binaryImg = makeBinaryImage(strengthImg, threshold);
 	CImgDisplay binaryImgDisp(binaryImg, "Binaerbild");
 
