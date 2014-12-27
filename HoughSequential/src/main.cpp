@@ -345,7 +345,7 @@ void drawLines(CImg<unsigned char>& image, std::vector< std::pair<double, double
 {
 	double color[3] = {255, 0, 0};
 
-	for (int i = 0; i < lines.size(); i++)
+	for (int i = 0; i < int(lines.size()); i++)
 	{
 		drawLine(image, lines[i].first, lines[i].second, color);
 //		color[0] = color[0] - 5;
