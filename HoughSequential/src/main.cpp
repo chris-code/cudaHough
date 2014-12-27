@@ -139,7 +139,9 @@ void houghTransform(const char* filename)
 
 	// show both images
 	CImgDisplay mainDisp(img, "Originalbild", 0);
+	mainDisp.move(50, 50);
 	CImgDisplay grayDisp(grayImg, "Grauwertbild", 0);
+	grayDisp.move(400, 50);
 
 	// create Sobel X filter
 	double sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
@@ -155,11 +157,14 @@ void houghTransform(const char* filename)
 
 	// display the results of the convolutions
 	CImgDisplay sobelXDisp(sobelXImg, "Sobel X");
+	sobelXDisp.move(750, 50);
 	CImgDisplay sobelYDisp(sobelYImg, "Sobel Y");
+	sobelYDisp.move(50,430);
 
 	// calculate the gradient strength
 	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
 	CImgDisplay gradientStrengthDisp(strengthImg, "Gradientenstaerke");
+	gradientStrengthDisp.move(400, 430);
 
 	// calculate the binary image of the gradient strength image
 	double min, max;
@@ -167,6 +172,7 @@ void houghTransform(const char* filename)
 	double threshold = (min + max) / 2;
 	CImg<double> binaryImg = makeBinaryImage(strengthImg, threshold);
 	CImgDisplay binaryImgDisp(binaryImg, "Binaerbild");
+	binaryImgDisp.move(750, 430);
 
 	// wait until the display with the original image is closed
 	while (!mainDisp._is_closed)
@@ -177,5 +183,6 @@ void houghTransform(const char* filename)
 int main(int argc, char **argv)
 {
 	houghTransform("pidgey.jpg");
+	houghTransform("charizard.jpg");
 }
 
