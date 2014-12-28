@@ -160,7 +160,7 @@ CImg<bool> preprocess(const char* filename, double thresholdDivisor = 2)
 //	double binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
 //	CImg<double> binomialUnnormalized(binomialArr, 3, 3);
 
-	double bino1DArr[15] = {1, 2, 1};
+	double bino1DArr[] = {1, 2, 1};
 	double bino2DArr[9];
 
 	int c = 0;
@@ -237,7 +237,7 @@ CImg<unsigned char> binaryToColorImg(const CImg<bool>& binaryImg)
 }
 
 template <typename T>
-std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int radius)
+std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int excludeRadius)
 {
 	std::vector< std::vector<int> > maxima;
 
@@ -247,11 +247,11 @@ std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int radius)
 		{
 			bool isMaximum = true;
 
-			for (int i = -radius; i <= radius; i++)
+			for (int i = -excludeRadius; i <= excludeRadius; i++)
 			{
 				int posX = ((x + i) + image.width()) % image.width();
 
-				for (int j = -radius; j <= radius; j++)
+				for (int j = -excludeRadius; j <= excludeRadius; j++)
 				{
 					int posY = ((y + j) + image.height()) % image.height();
 
@@ -281,10 +281,10 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 	return v1[2] > v2[2];
 }
 
-std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k)
+std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k, int excludeRadius)
 {
 	// compute local maxima
-	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, 10);
+	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, excludeRadius);
 
 	// sort them
 	std::sort(maxima.begin(), maxima.end(), compareLines);
@@ -348,50 +348,77 @@ void drawLines(CImg<unsigned char>& image, std::vector< std::pair<double, double
 	for (int i = 0; i < int(lines.size()); i++)
 	{
 		drawLine(image, lines[i].first, lines[i].second, color);
-//		color[0] = color[0] - 5;
 	}
 }
 
 
 int main(int argc, char **argv)
 {
+	// define minimal and maximal color value for the saved images
+	unsigned char minColor = 0;
+	unsigned char maxColor = 255;
+
+	// define some other variables
+	double thresholdDivisor = 4;
+	int excludeRadius = 10;
+
+	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
 	std::string filename = "images/stoppschild3.jpg";
 	if(argc >= 2) {
 		filename = argv[1];
 	}
-	CImg<bool> binaryImg = preprocess(filename.c_str(), 4);
+	CImg<bool> binaryImg = preprocess(filename.c_str(), thresholdDivisor);
 	clock_t preprocessEnd = std::clock();
 
+	// print how much time it took to compute the binary image
+	std::cout << "Preprocess time: " << double(preprocessEnd - preprocessStart) / CLOCKS_PER_SEC << std::endl;
+
+	// display the binary image
 	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
 	binaryImgDisp.move(50, 50);
 
-	std::cout << "Preprocess time: " << double(preprocessEnd - preprocessStart) / CLOCKS_PER_SEC << std::endl;
+	// save binary image as PNG-file
+	(CImg<unsigned char> (binaryImg)).normalize(minColor, maxColor).save_png("results/binaryimg.png", 1);
 
 	HoughParameterSet p(binaryImg.width(), binaryImg.height());
 
+	// compute the Accumulator Array and measure time
 	clock_t houghStart = std::clock();
-
 	CImg<long> accumulatorArray = computeAccumulatorArray(binaryImg, p);
-
 	clock_t houghEnd = std::clock();
 
+	// print how much time it took to compute the accumulator array
 	std::cout << "Hough time: " << double(houghEnd - houghStart) / CLOCKS_PER_SEC << std::endl;
 
+	// save Accumulator Array as PNG-file
+	(CImg<unsigned char> (accumulatorArray)).normalize(minColor, maxColor).save_png("results/accumulatorarray.png", 1);
+
+	// display the Accumulator Array
 	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
 	accDisplay.move(400,50);
 
-	clock_t drawStart = std::clock();
+	// compute the k best lines and measure time
+	clock_t bestStart = std::clock();
+	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16, excludeRadius);
+	clock_t bestEnd = std::clock();
 
+	// print how much time it took to compute the k best lines
+	std::cout << "Best lines time: " << double(bestEnd - bestStart) / CLOCKS_PER_SEC << std::endl;
+
+	// draw the lines and measure time
 	CImg<unsigned char> bestLinesImg = binaryToColorImg(binaryImg);
-
-	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16);
+	clock_t drawStart = std::clock();
 	drawLines(bestLinesImg, best);
-
 	clock_t drawEnd = std::clock();
 
+	// print how long it took to draw the k best lines
 	std::cout << "Draw time: " << double(drawEnd - drawStart) / CLOCKS_PER_SEC << std::endl;
 
+	// save best line image as PNG-file
+	(CImg<unsigned char> (bestLinesImg)).normalize(minColor, maxColor).save_png("results/bestlines.png", 3);
+
+	// display the best lines image
 	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
 	bestLinesDisp.move(0, 0);
 
