@@ -356,7 +356,11 @@ void drawLines(CImg<unsigned char>& image, std::vector< std::pair<double, double
 int main(int argc, char **argv)
 {
 	clock_t preprocessStart = std::clock();
-	CImg<bool> binaryImg = preprocess("images/stoppschild3.jpg", 4);
+	std::string filename = "images/stoppschild3.jpg";
+	if(argc >= 2) {
+		filename = argv[1];
+	}
+	CImg<bool> binaryImg = preprocess(filename.c_str(), 4);
 	clock_t preprocessEnd = std::clock();
 
 	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
