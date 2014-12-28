@@ -25,10 +25,18 @@ void errorCheck(cudaError_t returnCode, char *file, long line) {
 
 double * cImgToGPU(CImg<double> image) {
 	double *gpuImage;
-	assertCheck(cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(double)));
+	assertCheck( cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(double)) );
 	assertCheck(
 			cudaMemcpy(gpuImage, image.data(), image.height() * image.width() * sizeof(double), cudaMemcpyHostToDevice));
 	return gpuImage;
+}
+
+CImg<double> gpuToCImg(double *image, long width, long height) {
+	double *cpuData = new double[width * height];
+	assertCheck( cudaMemcpy(&cpuData, image, width * height * sizeof(double), cudaMemcpyDeviceToHost) );
+	CImg<double> cpuImg(cpuData, width, height);
+	delete[] cpuData;
+	return cpuImg;
 }
 
 __global__ void convolve(double *result, double *image, long imgWidth, long imgHeight, double *filter, long filWidth,
@@ -49,6 +57,17 @@ __global__ void convolve(double *result, double *image, long imgWidth, long imgH
 		}
 
 		image[y * imgWidth + x] = value;
+	}
+}
+
+__global__ void computeGradientStrengthGPU(double *gradientStrength, double *gradientX, double *gradientY, long width,
+		long height) {
+	long x = blockIdx.x * blockDim.x + threadIdx.x;
+	long y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < width && y < height) {
+		long index = y * width + x;
+		gradientStrength[index] = sqrt(pow(gradientX[index], 2) + pow(gradientY[index], 2));
 	}
 }
 
@@ -74,7 +93,7 @@ double * computeGradientStrength(double *grayValueImage, long width, long height
 
 	double *gradientStrength;
 	assertCheck(cudaMalloc(&gradientStrength, width * height * sizeof(double)));
-//	TODO calc. gradient strength
+	computeGradientStrengthGPU<<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
 
 	cudaFree(sobelX);
 	cudaFree(sobelY);
@@ -89,6 +108,12 @@ CImg<bool> cudaHough::preprocess(CImg<double> image) {
 	double *grayValueImage = cImgToGPU(cpuGrayValueImage);
 
 	double *gradientStrengthImage = computeGradientStrength(grayValueImage, image.width(), image.height());
+
+	CImg<double> CPUgradientStrenthImage = gpuToCImg(gradientStrengthImage, image.width(), image.height());
+	CImgDisplay d(CPUgradientStrenthImage, "foo", 1);
+	while(!d.is_closed()) {
+		d.wait();
+	}
 
 	cudaFree(grayValueImage);
 }
