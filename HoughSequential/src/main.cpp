@@ -422,14 +422,18 @@ int main(int argc, char **argv)
 	// define some other variables
 	double thresholdDivisor = 4;
 	int excludeRadius = 10;
-	int numberBestLines = 12;
+	int linesToExtract = 12;
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
 	std::string filename = "images/stoppschild3.jpg";
-	if(argc >= 2) {
+	if(argc >= 2)
 		filename = argv[1];
-	}
+	if (argc >= 3)
+		linesToExtract = atoi(argv[2]);
+	if (argc >= 4)
+		excludeRadius = atoi(argv[3]);
+
 	CImg<bool> binaryImg = preprocess(filename.c_str(), thresholdDivisor);
 	clock_t preprocessEnd = std::clock();
 
@@ -462,7 +466,7 @@ int main(int argc, char **argv)
 
 	// compute the k best lines and measure time
 	clock_t bestStart = std::clock();
-	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, numberBestLines, excludeRadius);
+	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, linesToExtract, excludeRadius);
 	clock_t bestEnd = std::clock();
 
 	// print how much time it took to compute the k best lines
