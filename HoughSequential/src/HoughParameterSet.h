@@ -7,17 +7,19 @@
 
 #pragma once
 
+#include <CImg.h>
+
 class HoughParameterSet
 {
 	public:
-		HoughParameterSet(double minTheta, double maxTheta, double stepsPerRadian, double stepsPerPixel, double minR, double maxR)
+		HoughParameterSet(int width, int height)
 		{
-			this->minTheta = minTheta;
-			this->maxTheta = maxTheta;
-			this->stepsPerRadian = stepsPerRadian;
-			this->stepsPerPixel = stepsPerPixel;
-			this->minR = minR;
-			this->maxR = maxR;
+			this->minTheta = 0;
+			this->maxTheta = cimg_library::cimg::PI;
+			this->stepsPerRadian = 57.295 * 2;
+			this->stepsPerPixel = 2;
+			this->minR = - sqrt(width * width + height * height);
+			this->maxR = - minR;
 		}
 
 		virtual ~HoughParameterSet()

@@ -368,15 +368,7 @@ int main(int argc, char **argv)
 
 	std::cout << "Preprocess time: " << double(preprocessEnd - preprocessStart) / CLOCKS_PER_SEC << std::endl;
 
-	// Define parameters for the Hough Transformation
-	double minTheta = 0;
-	double maxTheta = 1 * cimg::PI;
-	double stepsPerRadian = 57.295 * 2;
-	double stepsPerPixel = 2;
-	double maxR = sqrt(binaryImg.width() * binaryImg.width() + binaryImg.height() * binaryImg.height());
-	double minR = -maxR;
-
-	HoughParameterSet p(minTheta, maxTheta, stepsPerRadian, stepsPerPixel, minR, maxR);
+	HoughParameterSet p(binaryImg.width(), binaryImg.height());
 
 	clock_t houghStart = std::clock();
 
