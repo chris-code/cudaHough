@@ -281,7 +281,7 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 	return v1[2] > v2[2];
 }
 
-std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k, int escludeRadius)
+std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k, int excludeRadius)
 {
 	// compute local maxima
 	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, excludeRadius);
