@@ -133,7 +133,7 @@ CImg<double> calculateGradientStrength(const CImg<double>& sobelX, const CImg<do
 	for (int x = 0; x < sobelX.width(); x++)
 		for (int y = 0; y < sobelX.height(); y++)
 			// calculate the strength of the gradient at position (x,y) from the values in sobelX(x,y) and sobelY(x,y)
-			strengthImg(x,y,0,0) = sqrt(sobelX(x,y,0,0) * sobelX(x,j,0,0) + sobelY(i,j,0,0) * sobelY(x,y,0,0));
+			strengthImg(x,y,0,0) = sqrt(sobelX(x,y,0,0) * sobelX(x,y,0,0) + sobelY(x,y,0,0) * sobelY(x,y,0,0));
 
 	// return the strength image
 	return strengthImg;
@@ -422,6 +422,7 @@ int main(int argc, char **argv)
 	// define some other variables
 	double thresholdDivisor = 4;
 	int excludeRadius = 10;
+	int numberBestLines = 12;
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
@@ -461,7 +462,7 @@ int main(int argc, char **argv)
 
 	// compute the k best lines and measure time
 	clock_t bestStart = std::clock();
-	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16, excludeRadius);
+	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, numberBestLines, excludeRadius);
 	clock_t bestEnd = std::clock();
 
 	// print how much time it took to compute the k best lines
