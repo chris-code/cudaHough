@@ -15,8 +15,8 @@ CImg<double> RGBToGrayValueImage(const CImg<double> &image) {
 	return grayImg;
 }
 
-#define assertCheck(arg) { errorCheck(arg, __FILE__, __LINE__); }
-void errorCheck(cudaError_t returnCode, char *file, long line) {
+#define assertCheck(arg) { errorCheck((arg), __FILE__, __LINE__); }
+void errorCheck(const cudaError_t returnCode, const char *file, const long line) {
 	if (returnCode != cudaSuccess) {
 		std::cerr << cudaGetErrorString(returnCode) << " occured at " << line << " in file " << file << std::endl;
 		exit(EXIT_FAILURE);
@@ -25,7 +25,7 @@ void errorCheck(cudaError_t returnCode, char *file, long line) {
 
 double * cImgToGPU(CImg<double> image) {
 	double *gpuImage;
-	assertCheck( cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(double)) );
+	assertCheck(cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(double)));
 	assertCheck(
 			cudaMemcpy(gpuImage, image.data(), image.height() * image.width() * sizeof(double), cudaMemcpyHostToDevice));
 	return gpuImage;
@@ -33,7 +33,8 @@ double * cImgToGPU(CImg<double> image) {
 
 CImg<double> gpuToCImg(double *image, long width, long height) {
 	double *cpuData = new double[width * height];
-	assertCheck( cudaMemcpy(&cpuData, image, width * height * sizeof(double), cudaMemcpyDeviceToHost) );
+	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(double), cudaMemcpyDeviceToHost));
+	assertCheck(cudaFree(image));
 	CImg<double> cpuImg(cpuData, width, height);
 	delete[] cpuData;
 	return cpuImg;
@@ -89,16 +90,19 @@ double * computeGradientStrength(double *grayValueImage, long width, long height
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	convolve<<<blocks, threads>>>(gradientX, grayValueImage, width, height, sobelX, 3, 3, 1, 1);
+	assertCheck(cudaGetLastError());
 	convolve<<<blocks, threads>>>(gradientY, grayValueImage, width, height, sobelY, 3, 3, 1, 1);
+	assertCheck(cudaGetLastError());
 
 	double *gradientStrength;
 	assertCheck(cudaMalloc(&gradientStrength, width * height * sizeof(double)));
 	computeGradientStrengthGPU<<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
+	assertCheck(cudaGetLastError());
 
-	cudaFree(sobelX);
-	cudaFree(sobelY);
-	cudaFree(gradientX);
-	cudaFree(gradientY);
+	assertCheck(cudaFree(sobelX));
+	assertCheck(cudaFree(sobelY));
+	assertCheck(cudaFree(gradientX));
+	assertCheck(cudaFree(gradientY));
 
 	return gradientStrength;
 }
@@ -110,19 +114,23 @@ CImg<bool> cudaHough::preprocess(CImg<double> image) {
 	double *gradientStrengthImage = computeGradientStrength(grayValueImage, image.width(), image.height());
 
 	CImg<double> CPUgradientStrenthImage = gpuToCImg(gradientStrengthImage, image.width(), image.height());
+
 	CImgDisplay d(CPUgradientStrenthImage, "foo", 1);
-	while(!d.is_closed()) {
+	while (!d.is_closed()) {
 		d.wait();
 	}
 
-	cudaFree(grayValueImage);
+	assertCheck(cudaFree(grayValueImage));
+
+	return CImg<bool>(10, 10, 1, 1); // TODO return something for real
 }
 
 CImg<long> cudaHough::transform(CImg<bool> binaryImage) {
 //	TODO
+	return CImg<long>(10, 10, 1, 1); // TODO return something for real
 }
 
 std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> accumulatorArray,
 		long linesToExtract) {
-
+	return std::vector<std::pair<double, double> >(); // TODO return something for real
 }
