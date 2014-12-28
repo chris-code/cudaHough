@@ -360,7 +360,11 @@ int main(int argc, char **argv)
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
-	CImg<bool> binaryImg = preprocess("images/pidgey.jpg", 4);
+	std::string filename = "images/stoppschild3.jpg";
+	if(argc >= 2) {
+		filename = argv[1];
+	}
+	CImg<bool> binaryImg = preprocess(filename.c_str(), 4);
 	clock_t preprocessEnd = std::clock();
 
 	// print how much time it took to compute the binary image
