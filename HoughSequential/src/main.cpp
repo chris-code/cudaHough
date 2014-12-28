@@ -237,7 +237,7 @@ CImg<unsigned char> binaryToColorImg(const CImg<bool>& binaryImg)
 }
 
 template <typename T>
-std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int radius)
+std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int excludeRadius)
 {
 	std::vector< std::vector<int> > maxima;
 
@@ -247,11 +247,11 @@ std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int radius)
 		{
 			bool isMaximum = true;
 
-			for (int i = -radius; i <= radius; i++)
+			for (int i = -excludeRadius; i <= excludeRadius; i++)
 			{
 				int posX = ((x + i) + image.width()) % image.width();
 
-				for (int j = -radius; j <= radius; j++)
+				for (int j = -excludeRadius; j <= excludeRadius; j++)
 				{
 					int posY = ((y + j) + image.height()) % image.height();
 
@@ -281,10 +281,10 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 	return v1[2] > v2[2];
 }
 
-std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k)
+std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k, int escludeRadius)
 {
 	// compute local maxima
-	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, 20);
+	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, excludeRadius);
 
 	// sort them
 	std::sort(maxima.begin(), maxima.end(), compareLines);
@@ -358,13 +358,17 @@ int main(int argc, char **argv)
 	unsigned char minColor = 0;
 	unsigned char maxColor = 255;
 
+	// define some other variables
+	double thresholdDivisor = 4;
+	int excludeRadius = 10;
+
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
 	std::string filename = "images/stoppschild3.jpg";
 	if(argc >= 2) {
 		filename = argv[1];
 	}
-	CImg<bool> binaryImg = preprocess(filename.c_str(), 4);
+	CImg<bool> binaryImg = preprocess(filename.c_str(), thresholdDivisor);
 	clock_t preprocessEnd = std::clock();
 
 	// print how much time it took to compute the binary image
@@ -404,7 +408,7 @@ int main(int argc, char **argv)
 
 	// compute the k best lines and measure time
 	clock_t bestStart = std::clock();
-	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16);
+	std::vector< std::pair<double, double> > best = getKBestLines(accumulatorArray, p, 16, excludeRadius);
 	clock_t bestEnd = std::clock();
 
 	// print how much time it took to compute the k best lines
