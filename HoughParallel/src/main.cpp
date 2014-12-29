@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 		linesToExtract = std::atoi(argv[3]);
 	}
 	CImg<double> inputImage(filename.c_str()); // Load image
-	bool *binaryImage = cudaHough::preprocess(inputImage, threshold); // Transform to a binary image
+	bool *binaryImage = cudaHough::preprocess<double>(inputImage, threshold); // Transform to a binary image
 	CImg<long> accumulatorArray = cudaHough::transform(binaryImage); // Transform to Hough-space
 	std::vector< std::pair<double, double> > best = cudaHough::extractMostLikelyLines(accumulatorArray, linesToExtract);
 	return EXIT_SUCCESS;

@@ -1,9 +1,10 @@
 #include "houghTransform.h"
 
 // this method transforms a rgb-color image to an grayvalue image
-CImg<double> RGBToGrayValueImage(const CImg<double> &image) {
+template<typename T>
+CImg<T> RGBToGrayValueImage(const CImg<T> &image) {
 	// initialize the gray value image
-	CImg<double> grayImg(image.width(), image.height(), 1, 1);
+	CImg<T> grayImg(image.width(), image.height(), 1, 1);
 
 	// iterate over the image
 	for (int i = 0; i < image.width(); ++i)
@@ -23,30 +24,32 @@ void errorCheck(const cudaError_t returnCode, const char *file, const long line)
 	}
 }
 
-double * cImgToGPU(CImg<double> image) {
-	double *gpuImage;
-	assertCheck(cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(double)));
-	assertCheck(
-			cudaMemcpy(gpuImage, image.data(), image.height() * image.width() * sizeof(double), cudaMemcpyHostToDevice));
+template<typename T>
+T * cImgToGPU(CImg<T> &image) {
+	T *gpuImage;
+	assertCheck(cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(T)));
+	assertCheck(cudaMemcpy(gpuImage, image.data(), image.height() * image.width() * sizeof(T), cudaMemcpyHostToDevice));
 	return gpuImage;
 }
 
-CImg<double> gpuToCImg(double *image, long width, long height) {
-	double *cpuData = new double[width * height];
-	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(double), cudaMemcpyDeviceToHost));
+template<typename T>
+CImg<T> gpuToCImg(T *image, long width, long height) {
+	T *cpuData = (T*) malloc(width * height * sizeof(T));
+	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(T), cudaMemcpyDeviceToHost));
 	assertCheck(cudaFree(image));
-	CImg<double> cpuImg(cpuData, width, height);
-	delete[] cpuData;
+	CImg<T> cpuImg(cpuData, width, height);
+	free(cpuData);
 	return cpuImg;
 }
 
-__global__ void convolve(double *result, double *image, long imgWidth, long imgHeight, double *filter, long filWidth,
-		long filHeight, long filAnchorX, long filAnchorY) {
+template<typename T>
+__global__ void convolve(T *result, T *image, long imgWidth, long imgHeight, T *filter, long filWidth, long filHeight,
+		long filAnchorX, long filAnchorY) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x < imgWidth && y < imgHeight) {
-		double value = 0;
+		T value = 0;
 
 		for (long filX = 0; filX < filWidth; ++filX) {
 			long posImgX = ((x - filAnchorX + filX) + imgWidth) % imgWidth;
@@ -61,8 +64,8 @@ __global__ void convolve(double *result, double *image, long imgWidth, long imgH
 	}
 }
 
-__global__ void computeGradientStrengthGPU(double *gradientStrength, double *gradientX, double *gradientY, long width,
-		long height) {
+template<typename T>
+__global__ void computeGradientStrengthGPU(T *gradientStrength, T *gradientX, T *gradientY, long width, long height) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -72,31 +75,32 @@ __global__ void computeGradientStrengthGPU(double *gradientStrength, double *gra
 	}
 }
 
-double * computeGradientStrength(double *grayValueImage, long width, long height) {
-	double cpuSobelX[] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
-	double cpuSobelY[] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
-	double *sobelX;
-	double *sobelY;
-	assertCheck(cudaMalloc(&sobelX, 9 * sizeof(double)));
-	assertCheck(cudaMalloc(&sobelY, 9 * sizeof(double)));
-	assertCheck(cudaMemcpy(sobelX, cpuSobelX, 9 * sizeof(double), cudaMemcpyHostToDevice));
-	assertCheck(cudaMemcpy(sobelY, cpuSobelY, 9 * sizeof(double), cudaMemcpyHostToDevice));
+template <typename T>
+T * computeGradientStrength(T *grayValueImage, long width, long height) {
+	T cpuSobelX[] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
+	T cpuSobelY[] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
+	T *sobelX;
+	T *sobelY;
+	assertCheck(cudaMalloc(&sobelX, 9 * sizeof(T)));
+	assertCheck(cudaMalloc(&sobelY, 9 * sizeof(T)));
+	assertCheck(cudaMemcpy(sobelX, cpuSobelX, 9 * sizeof(T), cudaMemcpyHostToDevice));
+	assertCheck(cudaMemcpy(sobelY, cpuSobelY, 9 * sizeof(T), cudaMemcpyHostToDevice));
 
-	double *gradientX;
-	double *gradientY;
-	assertCheck(cudaMalloc(&gradientX, width * height * sizeof(double)));
-	assertCheck(cudaMalloc(&gradientY, width * height * sizeof(double)));
+	T *gradientX;
+	T *gradientY;
+	assertCheck(cudaMalloc(&gradientX, width * height * sizeof(T)));
+	assertCheck(cudaMalloc(&gradientY, width * height * sizeof(T)));
 
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
-	convolve<<<blocks, threads>>>(gradientX, grayValueImage, width, height, sobelX, 3, 3, 1, 1);
+	convolve<T> <<<blocks, threads>>>(gradientX, grayValueImage, width, height, sobelX, 3, 3, 1, 1);
 	assertCheck(cudaGetLastError());
-	convolve<<<blocks, threads>>>(gradientY, grayValueImage, width, height, sobelY, 3, 3, 1, 1);
+	convolve<T> <<<blocks, threads>>>(gradientY, grayValueImage, width, height, sobelY, 3, 3, 1, 1);
 	assertCheck(cudaGetLastError());
 
-	double *gradientStrength;
-	assertCheck(cudaMalloc(&gradientStrength, width * height * sizeof(double)));
-	computeGradientStrengthGPU<<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
+	T *gradientStrength;
+	assertCheck(cudaMalloc(&gradientStrength, width * height * sizeof(T)));
+	computeGradientStrengthGPU<T><<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
 	assertCheck(cudaGetLastError());
 
 	assertCheck(cudaFree(sobelX));
@@ -107,7 +111,8 @@ double * computeGradientStrength(double *grayValueImage, long width, long height
 	return gradientStrength;
 }
 
-__global__ void binarizeGPU(bool *result, double *image, long width, long height, double threshold) {
+template <typename T>
+__global__ void binarizeGPU(bool *result, T *image, long width, long height, T threshold) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -121,22 +126,24 @@ __global__ void binarizeGPU(bool *result, double *image, long width, long height
 }
 
 //	TODO make the threshold relative to the value range within the image, instead of an absolute value
-bool * binarize(double *image, long width, long height, double threshold) {
+template <typename T>
+bool * binarize(T *image, long width, long height, T threshold) {
 	bool *binaryImage;
 	assertCheck(cudaMalloc(&binaryImage, width * height * sizeof(bool)));
 
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
-	binarizeGPU<<<blocks, threads>>>(binaryImage, image, width, height, threshold);
+	binarizeGPU<T><<<blocks, threads>>>(binaryImage, image, width, height, threshold);
 
 	return binaryImage;
 }
 
-bool * cudaHough::preprocess(CImg<double> image, double binarizationThreshold) {
-	CImg<double> cpuGrayValueImage = RGBToGrayValueImage(image);
-	double *grayValueImage = cImgToGPU(cpuGrayValueImage);
-	double *gradientStrengthImage = computeGradientStrength(grayValueImage, image.width(), image.height());
-	bool *binaryImage = binarize(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
+template <typename T>
+bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
+	CImg<T> cpuGrayValueImage = RGBToGrayValueImage<T>(image);
+	T *grayValueImage = cImgToGPU<T>(cpuGrayValueImage);
+	T *gradientStrengthImage = computeGradientStrength<T>(grayValueImage, image.width(), image.height());
+	bool *binaryImage = binarize<T>(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
 
 	assertCheck(cudaFree(grayValueImage));
 	assertCheck(cudaFree(gradientStrengthImage));
@@ -149,7 +156,11 @@ CImg<long> cudaHough::transform(bool *binaryImage) {
 	return CImg<long>(10, 10, 1, 1); // TODO return something for real
 }
 
-std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> accumulatorArray,
+std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
 		long linesToExtract) {
 	return std::vector<std::pair<double, double> >(); // TODO return something for real
 }
+
+// Instantiate template methods so they are available to the compiler
+template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizationThreshold);
+template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);

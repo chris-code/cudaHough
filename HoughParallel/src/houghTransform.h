@@ -8,9 +8,10 @@
 using namespace cimg_library;
 
 namespace cudaHough {
-	bool * preprocess(CImg<double> image, double binarizationThreshold);
+	template <typename T>
+	bool * preprocess(CImg<T> &image, T binarizationThreshold);
 	CImg<long> transform(bool *binaryImage);
-	std::vector<std::pair<double, double> > extractMostLikelyLines(CImg<long> accumulatorArray, long linesToExtract);
+	std::vector<std::pair<double, double> > extractMostLikelyLines(CImg<long> &accumulatorArray, long linesToExtract);
 
 	class HoughParameterSet {
 		public:
