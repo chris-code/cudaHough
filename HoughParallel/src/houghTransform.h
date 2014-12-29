@@ -11,15 +11,7 @@ template<typename T>
 CImg<T> gpuToCImg(T *image, long width, long height);
 
 namespace cudaHough {
-	template <typename T>
-	bool * preprocess(CImg<T> &image, T binarizationThreshold);
-
-	template <typename T>
-	CImg<T> transform(bool *binaryImage);
-
-	template <typename retT, typename paramT>
-	std::vector<std::pair<retT, retT> > extractMostLikelyLines(CImg<paramT> &accumulatorArray, long linesToExtract);
-
+	template<typename T>
 	class HoughParameterSet {
 		public:
 			HoughParameterSet(int width, int height) {
@@ -34,11 +26,20 @@ namespace cudaHough {
 			virtual ~HoughParameterSet() {
 			}
 
-			double minTheta;
-			double maxTheta;
-			double stepsPerRadian;
-			double stepsPerPixel;
-			double minR;
-			double maxR;
+			T minTheta;
+			T maxTheta;
+			T stepsPerRadian;
+			T stepsPerPixel;
+			T minR;
+			T maxR;
 	};
+
+	template<typename T>
+	bool * preprocess(CImg<T> &image, T binarizationThreshold);
+
+	template<typename retT, typename paramT>
+	retT * transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps);
+
+	template<typename retT, typename paramT>
+	std::vector<std::pair<retT, retT> > extractMostLikelyLines(CImg<paramT> &accumulatorArray, long linesToExtract);
 }

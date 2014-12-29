@@ -7,8 +7,8 @@ CImg<T> RGBToGrayValueImage(const CImg<T> &image) {
 	CImg<T> grayImg(image.width(), image.height(), 1, 1);
 
 	// iterate over the image
-	for (int i = 0; i < image.width(); ++i)
-		for (int j = 0; j < image.height(); ++j) {
+	for (long i = 0; i < image.width(); ++i)
+		for (long j = 0; j < image.height(); ++j) {
 			// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
 			grayImg(i, j, 0, 0) = 0.21 * image(i, j, 0, 0) + 0.72 * image(i, j, 0, 1) + 0.07 * image(i, j, 0, 2);
 		}
@@ -134,6 +134,7 @@ bool * binarize(T *image, long width, long height, T threshold) {
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	binarizeGPU<T> <<<blocks, threads>>>(binaryImage, image, width, height, threshold);
+	assertCheck(cudaGetLastError());
 
 	return binaryImage;
 }
@@ -151,9 +152,45 @@ bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
 	return binaryImage;
 }
 
-template<typename T>
-CImg<T> cudaHough::transform(bool *binaryImage) {
-	return CImg<T>(10, 10, 1, 1); // TODO return something for real
+template<typename Taccu, typename Tparam>
+__global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long height, long borderExclude,
+		Taccu *accumulatorArray, Tparam minTheta, Tparam maxTheta, Tparam thetaStepSize, Tparam stepsPerRadian,
+		Tparam minR, Tparam stepsPerPixel, long dimTheta) {
+	long x = blockIdx.x * blockDim.x + threadIdx.x;
+	long y = blockIdx.y * blockDim.y + threadIdx.y;
+//	TODO calculate x and y by directly taking into account border exclude, instead of checking it afterwards
+	if (x >= borderExclude && y >= borderExclude && x < width - borderExclude && y < height - borderExclude) {
+		if (binaryImage[y * width + x] == 1) {
+			for (Tparam theta = minTheta; theta <= maxTheta; theta += thetaStepSize) {
+				Tparam r = x * cos(theta) + y * sin(theta);
+
+				long thetaIdx = long((theta - minTheta) * stepsPerRadian);
+				long rIdx = long((r - minR) * stepsPerPixel);
+				accumulatorArray[rIdx * dimTheta + thetaIdx] += 1;
+			}
+		}
+	}
+}
+
+template<typename retT, typename paramT>
+retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps) {
+	long dimTheta = (hps.maxTheta - hps.minTheta) * hps.stepsPerRadian + 1;
+	long dimR = (hps.maxR - hps.minR) * hps.stepsPerPixel + 1;
+	long borderExclude = 5;
+	paramT thetaStepSize = 1.0 / hps.stepsPerRadian;
+
+	retT *accumulatorArray;
+	assertCheck(cudaMalloc(&accumulatorArray, dimTheta * dimR * sizeof(retT)));
+	cudaMemset(accumulatorArray, 0, dimTheta * dimR * sizeof(retT));
+
+	dim3 threads(16, 16);
+	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
+	computeAccumulatorArrayGPU<retT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
+			accumulatorArray, hps.minTheta, hps.maxTheta, thetaStepSize, hps.stepsPerRadian, hps.minR,
+			hps.stepsPerPixel, dimTheta);
+	assertCheck(cudaGetLastError());
+
+	return accumulatorArray;
 }
 
 template<typename retT, typename paramT>
@@ -169,7 +206,8 @@ template CImg<float> gpuToCImg(float *image, long width, long height);
 template CImg<double> gpuToCImg(double *image, long width, long height);
 template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizationThreshold);
 template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
-template CImg<long> cudaHough::transform(bool *binaryImage);
+template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
+template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
 template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
 		long linesToExtract);
 template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,

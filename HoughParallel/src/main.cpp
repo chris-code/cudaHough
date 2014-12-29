@@ -20,15 +20,19 @@ int main(int argc, char **argv) {
 	}
 
 	CImg<double> inputImage(filename.c_str()); // Load image
+	cudaHough::HoughParameterSet<double> hps(inputImage.width(), inputImage.height());
 	bool *binaryImage = cudaHough::preprocess<double>(inputImage, threshold); // Transform to a binary image
-	CImg<long> accumulatorArray = cudaHough::transform <long>(binaryImage); // Transform to Hough-space
-	std::vector<std::pair<double, double> > best = cudaHough::extractMostLikelyLines<double, long>(accumulatorArray,
-			linesToExtract);
+	long *accumulatorArray = cudaHough::transform<long, double>(binaryImage, inputImage.width(), inputImage.height(),
+			hps); // Transform to Hough-space
+//	std::vector<std::pair<double, double> > best = cudaHough::extractMostLikelyLines<double, long>(accumulatorArray,
+//			linesToExtract);
 
 	CImgDisplay inputDisplay(inputImage, "Input", 1);
-	CImgDisplay binaryDisplay(gpuToCImg(binaryImage, inputImage.width(), inputImage.height()), "Binary", 1);
+	CImgDisplay binaryDisplay(gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height()), "Binary", 1);
+	CImgDisplay accumulatorDisplay(gpuToCImg<long>(accumulatorArray, inputImage.width(), inputImage.height()),
+			"Accumulator", 1);
 
-	while(!inputDisplay.is_closed())
+	while (!inputDisplay.is_closed())
 		inputDisplay.wait();
 
 	return EXIT_SUCCESS;
