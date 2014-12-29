@@ -107,19 +107,44 @@ double * computeGradientStrength(double *grayValueImage, long width, long height
 	return gradientStrength;
 }
 
-CImg<bool> cudaHough::preprocess(CImg<double> image) {
+__global__ void binarizeGPU(bool *result, double *image, long width, long height, double threshold) {
+	long x = blockIdx.x * blockDim.x + threadIdx.x;
+	long y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < width && y < height) {
+		long index = y * width + x;
+		if (image[index] > threshold)
+			result[index] = 1;
+		else
+			result[index] = 0;
+	}
+}
+
+//	TODO make the threshold relative to the value range within the image, instead of an absolute value
+bool * binarize(double *image, long width, long height, double threshold) {
+	bool *binaryImage;
+	assertCheck(cudaMalloc(&binaryImage, width * height * sizeof(bool)));
+
+	dim3 threads(16, 16);
+	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
+	binarizeGPU<<<blocks, threads>>>(binaryImage, image, width, height, threshold);
+
+	return binaryImage;
+}
+
+bool * cudaHough::preprocess(CImg<double> image, double binarizationThreshold) {
 	CImg<double> cpuGrayValueImage = RGBToGrayValueImage(image);
 	double *grayValueImage = cImgToGPU(cpuGrayValueImage);
-
 	double *gradientStrengthImage = computeGradientStrength(grayValueImage, image.width(), image.height());
+	bool *binaryImage = binarize(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
 
 	assertCheck(cudaFree(grayValueImage));
 	assertCheck(cudaFree(gradientStrengthImage));
 
-	return CImg<bool>(10, 10, 1, 1); // TODO return something for real
+	return binaryImage;
 }
 
-CImg<long> cudaHough::transform(CImg<bool> binaryImage) {
+CImg<long> cudaHough::transform(bool *binaryImage) {
 //	TODO
 	return CImg<long>(10, 10, 1, 1); // TODO return something for real
 }
