@@ -75,7 +75,7 @@ __global__ void computeGradientStrengthGPU(T *gradientStrength, T *gradientX, T 
 	}
 }
 
-template <typename T>
+template<typename T>
 T * computeGradientStrength(T *grayValueImage, long width, long height) {
 	T cpuSobelX[] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
 	T cpuSobelY[] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
@@ -100,7 +100,7 @@ T * computeGradientStrength(T *grayValueImage, long width, long height) {
 
 	T *gradientStrength;
 	assertCheck(cudaMalloc(&gradientStrength, width * height * sizeof(T)));
-	computeGradientStrengthGPU<T><<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
+	computeGradientStrengthGPU<T> <<<blocks, threads>>>(gradientStrength, gradientX, gradientY, width, height);
 	assertCheck(cudaGetLastError());
 
 	assertCheck(cudaFree(sobelX));
@@ -111,7 +111,7 @@ T * computeGradientStrength(T *grayValueImage, long width, long height) {
 	return gradientStrength;
 }
 
-template <typename T>
+template<typename T>
 __global__ void binarizeGPU(bool *result, T *image, long width, long height, T threshold) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -126,19 +126,19 @@ __global__ void binarizeGPU(bool *result, T *image, long width, long height, T t
 }
 
 //	TODO make the threshold relative to the value range within the image, instead of an absolute value
-template <typename T>
+template<typename T>
 bool * binarize(T *image, long width, long height, T threshold) {
 	bool *binaryImage;
 	assertCheck(cudaMalloc(&binaryImage, width * height * sizeof(bool)));
 
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
-	binarizeGPU<T><<<blocks, threads>>>(binaryImage, image, width, height, threshold);
+	binarizeGPU<T> <<<blocks, threads>>>(binaryImage, image, width, height, threshold);
 
 	return binaryImage;
 }
 
-template <typename T>
+template<typename T>
 bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
 	CImg<T> cpuGrayValueImage = RGBToGrayValueImage<T>(image);
 	T *grayValueImage = cImgToGPU<T>(cpuGrayValueImage);
@@ -151,16 +151,26 @@ bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
 	return binaryImage;
 }
 
-CImg<long> cudaHough::transform(bool *binaryImage) {
-//	TODO
-	return CImg<long>(10, 10, 1, 1); // TODO return something for real
+template<typename T>
+CImg<T> cudaHough::transform(bool *binaryImage) {
+	return CImg<T>(10, 10, 1, 1); // TODO return something for real
 }
 
-std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
+template<typename retT, typename paramT>
+std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(CImg<paramT> &accumulatorArray,
 		long linesToExtract) {
-	return std::vector<std::pair<double, double> >(); // TODO return something for real
+	return std::vector<std::pair<retT, retT> >(); // TODO return something for real
 }
 
 // Instantiate template methods so they are available to the compiler
+template CImg<bool> gpuToCImg(bool *image, long width, long height);
+template CImg<long> gpuToCImg(long *image, long width, long height);
+template CImg<float> gpuToCImg(float *image, long width, long height);
+template CImg<double> gpuToCImg(double *image, long width, long height);
 template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizationThreshold);
 template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
+template CImg<long> cudaHough::transform(bool *binaryImage);
+template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
+		long linesToExtract);
+template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
+		long linesToExtract);

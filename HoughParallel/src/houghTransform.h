@@ -7,11 +7,18 @@
 
 using namespace cimg_library;
 
+template<typename T>
+CImg<T> gpuToCImg(T *image, long width, long height);
+
 namespace cudaHough {
 	template <typename T>
 	bool * preprocess(CImg<T> &image, T binarizationThreshold);
-	CImg<long> transform(bool *binaryImage);
-	std::vector<std::pair<double, double> > extractMostLikelyLines(CImg<long> &accumulatorArray, long linesToExtract);
+
+	template <typename T>
+	CImg<T> transform(bool *binaryImage);
+
+	template <typename retT, typename paramT>
+	std::vector<std::pair<retT, retT> > extractMostLikelyLines(CImg<paramT> &accumulatorArray, long linesToExtract);
 
 	class HoughParameterSet {
 		public:
