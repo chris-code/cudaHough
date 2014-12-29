@@ -6,8 +6,8 @@ CImg<double> RGBToGrayValueImage(const CImg<double> &image) {
 	CImg<double> grayImg(image.width(), image.height(), 1, 1);
 
 	// iterate over the image
-	for (int i = 0; i < image.width(); i++)
-		for (int j = 0; j < image.height(); j++) {
+	for (int i = 0; i < image.width(); ++i)
+		for (int j = 0; j < image.height(); ++j) {
 			// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
 			grayImg(i, j, 0, 0) = 0.21 * image(i, j, 0, 0) + 0.72 * image(i, j, 0, 1) + 0.07 * image(i, j, 0, 2);
 		}
@@ -57,7 +57,7 @@ __global__ void convolve(double *result, double *image, long imgWidth, long imgH
 			}
 		}
 
-		image[y * imgWidth + x] = value;
+		result[y * imgWidth + x] = value;
 	}
 }
 
@@ -113,14 +113,8 @@ CImg<bool> cudaHough::preprocess(CImg<double> image) {
 
 	double *gradientStrengthImage = computeGradientStrength(grayValueImage, image.width(), image.height());
 
-	CImg<double> CPUgradientStrenthImage = gpuToCImg(gradientStrengthImage, image.width(), image.height());
-
-	CImgDisplay d(CPUgradientStrenthImage, "foo", 1);
-	while (!d.is_closed()) {
-		d.wait();
-	}
-
 	assertCheck(cudaFree(grayValueImage));
+	assertCheck(cudaFree(gradientStrengthImage));
 
 	return CImg<bool>(10, 10, 1, 1); // TODO return something for real
 }
