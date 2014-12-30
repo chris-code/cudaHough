@@ -19,7 +19,7 @@ CImg<T> RGBToGrayValueImage(const CImg<T> &image) {
 #define assertCheck(arg) { errorCheck((arg), __FILE__, __LINE__); }
 void errorCheck(const cudaError_t returnCode, const char *file, const long line) {
 	if (returnCode != cudaSuccess) {
-		std::cerr << cudaGetErrorString(returnCode) << " occured at " << line << " in file " << file << std::endl;
+		std::cerr << cudaGetErrorString(returnCode) << " occurred at " << line << " in file " << file << std::endl;
 		exit(EXIT_FAILURE);
 	}
 }
