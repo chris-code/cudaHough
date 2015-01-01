@@ -85,7 +85,7 @@ CImg<double> normalize(const CImg<double>& filter)
 // this methods convolves an gray value image with a filter using the Wrap-Around approach
 CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, const int offsetX, const int offsetY)
 {
-	// intialize the convolved image
+	// initialize the convolved image
 	CImg<double> convolvedImg(image.width(), image.height(), 1, 1);
 
 	// iterate over image
@@ -276,7 +276,7 @@ CImg<unsigned char> binaryToColorImg(const CImg<bool>& binaryImg)
 template <typename T>
 std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int excludeRadius)
 {
-	// declarate vector that shall save the maxima
+	// declare vector that shall save the maxima
 	std::vector< std::vector<int> > maxima;
 
 	// iterate over the image
@@ -330,11 +330,21 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 // this methods extracts the k best lines from the accumulator array
 std::vector< std::pair<double, double> > getKBestLines(const CImg<long>& accArray, const HoughParameterSet& p, int k, int excludeRadius)
 {
+	clock_t findMaximaStart = std::clock();
 	// compute local maxima
 	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, excludeRadius);
+	clock_t findMaximaEnd = std::clock();
 
+	// print how much time it took to find the local maxima
+	std::cout << "Find maxima time: " << double(findMaximaEnd - findMaximaStart) / CLOCKS_PER_SEC << std::endl;
+
+	clock_t sortStart = std::clock();
 	// sort them
 	std::sort(maxima.begin(), maxima.end(), compareLines);
+	clock_t sortEnd = std::clock();
+
+	// print how much time it took to sort the local maxima
+	std::cout << "Sort time: " << double(sortEnd - sortStart) / CLOCKS_PER_SEC << std::endl;
 
 	// extract the k best lines
 	std::vector< std::pair<double, double> > kBest;
@@ -421,12 +431,12 @@ int main(int argc, char **argv)
 
 	// define some other variables
 	double thresholdDivisor = 4;
-	int excludeRadius = 10;
+	int excludeRadius = 20;
 	int linesToExtract = 12;
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
-	std::string filename = "images/stoppschild3.jpg";
+	std::string filename = "../images/stoppschild3.jpg";
 	if(argc >= 2)
 		filename = argv[1];
 	if (argc >= 3)
