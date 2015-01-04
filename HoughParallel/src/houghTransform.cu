@@ -36,13 +36,13 @@ T * cImgToGPU(CImg<T> &image) {
 	return gpuImage;
 }
 
-template<typename T>
-CImg<T> gpuToCImg(T *image, long width, long height, bool freeMemory) {
-	T *cpuData = (T*) malloc(width * height * sizeof(T));
-	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(T), cudaMemcpyDeviceToHost));
+template<typename imgT>
+CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory) {
+	imgT *cpuData = (imgT*) malloc(width * height * sizeof(imgT));
+	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(imgT), cudaMemcpyDeviceToHost));
 	if (freeMemory)
 		assertCheck(cudaFree(image));
-	CImg<T> cpuImg(cpuData, width, height);
+	CImg<imgT> cpuImg(cpuData, width, height);
 	free(cpuData);
 	return cpuImg;
 }
@@ -144,12 +144,12 @@ bool * binarize(T *image, long width, long height, T threshold) {
 	return binaryImage;
 }
 
-template<typename T>
-bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
-	CImg<T> cpuGrayValueImage = RGBToGrayValueImage<T>(image);
-	T *grayValueImage = cImgToGPU<T>(cpuGrayValueImage);
-	T *gradientStrengthImage = computeGradientStrength<T>(grayValueImage, image.width(), image.height());
-	bool *binaryImage = binarize<T>(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
+template<typename imgT>
+bool * cudaHough::preprocess(CImg<imgT> &image, imgT binarizationThreshold) {
+	CImg<imgT> cpuGrayValueImage = RGBToGrayValueImage<imgT>(image);
+	imgT *grayValueImage = cImgToGPU<imgT>(cpuGrayValueImage);
+	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
+	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
 
 	assertCheck(cudaFree(grayValueImage));
 	assertCheck(cudaFree(gradientStrengthImage));
@@ -157,9 +157,9 @@ bool * cudaHough::preprocess(CImg<T> &image, T binarizationThreshold) {
 	return binaryImage;
 }
 
-template<typename Taccu, typename Tparam>
+template<typename accuT, typename Tparam>
 __global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long height, long borderExclude,
-		Taccu *accumulatorArray, Tparam minTheta, Tparam maxTheta, Tparam thetaStepSize, Tparam stepsPerRadian,
+		accuT *accumulatorArray, Tparam minTheta, Tparam maxTheta, Tparam thetaStepSize, Tparam stepsPerRadian,
 		Tparam minR, Tparam stepsPerPixel, long dimTheta) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -177,19 +177,19 @@ __global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long h
 	}
 }
 
-template<typename retT, typename paramT>
-retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps) {
+template<typename accuT, typename paramT>
+accuT * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps) {
 	long dimTheta = hps.getDimTheta();
 	long dimR = hps.getDimR();
 	long borderExclude = 5;
 
-	retT *accumulatorArray;
-	assertCheck(cudaMalloc(&accumulatorArray, dimTheta * dimR * sizeof(retT)));
-	cudaMemset(accumulatorArray, 0, dimTheta * dimR * sizeof(retT));
+	accuT *accumulatorArray;
+	assertCheck(cudaMalloc(&accumulatorArray, dimTheta * dimR * sizeof(accuT)));
+	cudaMemset(accumulatorArray, 0, dimTheta * dimR * sizeof(accuT));
 
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
-	computeAccumulatorArrayGPU<retT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
+	computeAccumulatorArrayGPU<accuT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
 			accumulatorArray, hps.minTheta, hps.maxTheta, hps.getThetaStepSize(), hps.stepsPerRadian, hps.minR,
 			hps.stepsPerPixel, dimTheta);
 	assertCheck(cudaGetLastError());
@@ -248,17 +248,15 @@ thrust::device_vector<long> getSortedIndices(T *maxima, long width, long height)
 	return indices;
 }
 
-template<typename retT, typename paramT>
-std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
-		long excludeRadius, HoughParameterSet<retT> &hps) {
-	paramT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
-
-	thrust::device_vector<long> sortedIndices = getSortedIndices<paramT>(localMaxima, hps.getDimTheta(), hps.getDimR());
-
+template<typename accuT, typename paramT>
+std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
+		long excludeRadius, HoughParameterSet<paramT> &hps) {
+	accuT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
+	thrust::device_vector<long> sortedIndices = getSortedIndices<accuT>(localMaxima, hps.getDimTheta(), hps.getDimR());
 	thrust::host_vector<long> cpuSortedIndices(linesToExtract);
 	thrust::copy(sortedIndices.begin(), sortedIndices.begin() + linesToExtract, cpuSortedIndices.begin());
 
-	std::vector<std::pair<retT, retT> > bestLines;
+	std::vector<std::pair<paramT, paramT> > bestLines;
 	for (int i = 0; i < linesToExtract; i++) {
 		long x = cpuSortedIndices[i] % hps.getDimTheta();
 		long y = cpuSortedIndices[i] / hps.getDimTheta();
@@ -268,11 +266,15 @@ std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *ac
 
 		bestLines.push_back(std::make_pair<double, double>(theta, r));
 	}
-
 	cudaFree(localMaxima);
 
 	return bestLines;
 }
+
+//template<typename imgT, typename accuT, typename paramT>
+//std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
+//		imgT binarizationThreshold, long linesToExtract, long excludeRadius) {
+//}
 
 // Instantiate template methods so they are available to the compiler
 template CImg<bool> gpuToCImg(bool *image, long width, long height, bool freeMemory);
@@ -283,7 +285,7 @@ template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizat
 template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
-template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
+template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines(long *accumulatorArray,
 		long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
-template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
+template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines(long *accumulatorArray,
 		long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);

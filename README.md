@@ -11,6 +11,13 @@ Technical details
 ------------------------
 Images on the GPU are represented as flat (1D) arrays in **column-major format**.
 
+Throughout the parallel version, templates are used. This can get quite messy in C++,
+so here are our naming conventions for template type names:
+- paramT - Type for hough transform parameters. Usually floats of varying precision
+- accuT - The type of the accumulator array. Usually an integer.
+- imgT - Type parameter for the image (usually a CImg object)
+- T - Any other case (where there is only one variable type)
+
 The width and height of the accumulator array represent the Theta-dimension, and
 R-dimension, respectively (Where theta is the angle of the perpendicular through the
 origin and R is the distance to the origin)
