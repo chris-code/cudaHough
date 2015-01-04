@@ -205,7 +205,7 @@ CImg<bool> preprocess(const char* filename, double thresholdDivisor = 2)
 CImg<long> computeAccumulatorArray(const CImg<bool>& binaryImg, const HoughParameterSet& p)
 {
 	// calculate the dimensions of the accumulator array by the given HoughParameterSet
-	int dimTheta = (p.maxTheta - p.minTheta) * p.stepsPerRadian;
+	int dimTheta = (p.maxTheta - p.minTheta) * p.stepsPerRadian; //FIXME dimensions too small
 	int dimR = (p.maxR - p.minR) * p.stepsPerPixel;
 
 	// initialize the border exclude value, which defines how much of the border is not considered
