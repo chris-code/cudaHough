@@ -8,7 +8,7 @@
 using namespace cimg_library;
 
 template<typename T>
-CImg<T> gpuToCImg(T *image, long width, long height);
+CImg<T> gpuToCImg(T *image, long width, long height, bool freeMemory = true);
 
 namespace cudaHough {
 	template<typename T>

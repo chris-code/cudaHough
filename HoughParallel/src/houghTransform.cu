@@ -33,10 +33,11 @@ T * cImgToGPU(CImg<T> &image) {
 }
 
 template<typename T>
-CImg<T> gpuToCImg(T *image, long width, long height) {
+CImg<T> gpuToCImg(T *image, long width, long height, bool freeMemory) {
 	T *cpuData = (T*) malloc(width * height * sizeof(T));
 	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(T), cudaMemcpyDeviceToHost));
-	assertCheck(cudaFree(image));
+	if (freeMemory)
+		assertCheck(cudaFree(image));
 	CImg<T> cpuImg(cpuData, width, height);
 	free(cpuData);
 	return cpuImg;
@@ -200,10 +201,10 @@ std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(CImg<param
 }
 
 // Instantiate template methods so they are available to the compiler
-template CImg<bool> gpuToCImg(bool *image, long width, long height);
-template CImg<long> gpuToCImg(long *image, long width, long height);
-template CImg<float> gpuToCImg(float *image, long width, long height);
-template CImg<double> gpuToCImg(double *image, long width, long height);
+template CImg<bool> gpuToCImg(bool *image, long width, long height, bool freeMemory);
+template CImg<long> gpuToCImg(long *image, long width, long height, bool freeMemory);
+template CImg<float> gpuToCImg(float *image, long width, long height, bool freeMemory);
+template CImg<double> gpuToCImg(double *image, long width, long height, bool freeMemory);
 template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizationThreshold);
 template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
