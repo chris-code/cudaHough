@@ -106,21 +106,20 @@ int main(int argc, char **argv) {
 	bool *binaryImage = cudaHough::preprocess<double>(inputImage, threshold); // Transform to a binary image
 	long *accumulatorArray = cudaHough::transform<long, double>(binaryImage, inputImage.width(), inputImage.height(),
 			hps); // Transform to Hough-space
-	std::vector<std::pair<double, double> > best = cudaHough::extractStrongestLines<long, double>(accumulatorArray,
-			linesToExtract, excludeRadius, hps);
+	std::vector<std::pair<double, double> > strongestLines = cudaHough::extractStrongestLines<long, double>(
+			accumulatorArray, linesToExtract, excludeRadius, hps);
 
 	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
 	CImg<long> cpuAccumulatorArray = gpuToCImg<long>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
 
-	// draw the lines and measure time
 	double redColor[] = { 255, 0, 0 };
 	CImg<unsigned char> cpuBestLinesImg = binaryToColorImg(cpuBinaryImage);
-	drawLines(cpuBestLinesImg, best, redColor);
+	drawLines(cpuBestLinesImg, strongestLines, redColor);
 
 	CImgDisplay inputDisplay(inputImage, "Input", 1);
 	CImgDisplay binaryDisplay(cpuBinaryImage, "Binary", 1);
 	CImgDisplay accumulatorDisplay(cpuAccumulatorArray, "Accumulator", 1);
-	CImgDisplay bestLinesDisplay(cpuBestLinesImg, "Best Lines", 1);
+	CImgDisplay strongestLinesDisplay(cpuBestLinesImg, "Best Lines", 1);
 
 	(CImg<unsigned char>(cpuBinaryImage)).normalize(0, 255).save_png(
 			std::string("binaryImage.png").insert(0, resultPath).c_str(), 1);

@@ -266,15 +266,24 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *
 
 		bestLines.push_back(std::make_pair<double, double>(theta, r));
 	}
-	cudaFree(localMaxima);
+	assertCheck(cudaFree(localMaxima));
 
 	return bestLines;
 }
 
-//template<typename imgT, typename accuT, typename paramT>
-//std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
-//		imgT binarizationThreshold, long linesToExtract, long excludeRadius) {
-//}
+template<typename imgT, typename accuT, typename paramT>
+std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(CImg<imgT> &image,
+		HoughParameterSet<paramT> &hps, imgT binarizationThreshold, long linesToExtract, long excludeRadius) {
+	bool *binaryImage = preprocess<imgT>(image, binarizationThreshold);
+	accuT *accumulatorArray = transform<accuT, paramT>(binaryImage, image.width(), image.height(), hps);
+	std::vector<std::pair<paramT, paramT> > strongestLines = extractStrongestLines<accuT, paramT>(accumulatorArray,
+			linesToExtract, excludeRadius, hps);
+
+	assertCheck(cudaFree(binaryImage));
+	assertCheck(cudaFree(accumulatorArray));
+
+	return strongestLines;
+}
 
 // Instantiate template methods so they are available to the compiler
 template CImg<bool> gpuToCImg(bool *image, long width, long height, bool freeMemory);
@@ -289,3 +298,9 @@ template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines(
 		long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
 template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines(long *accumulatorArray,
 		long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);
+template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines<float, long, float>(
+		CImg<float> &image, HoughParameterSet<float> &hps, float binarizationThreshold, long linesToExtract,
+		long excludeRadius);
+template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines<double, long, double>(
+		CImg<double> &image, HoughParameterSet<double> &hps, double binarizationThreshold, long linesToExtract,
+		long excludeRadius);

@@ -54,7 +54,7 @@ namespace cudaHough {
 	std::vector<std::pair<paramT, paramT> > extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
 			long excludeRadius, HoughParameterSet<paramT> &hps);
 
-//	template<typename imgT, typename accuT, typename paramT>
-//	std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
-//			imgT binarizationThreshold, long linesToExtract, long excludeRadius);
+	template<typename imgT, typename accuT, typename paramT>
+	std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
+			imgT binarizationThreshold, long linesToExtract, long excludeRadius);
 }
