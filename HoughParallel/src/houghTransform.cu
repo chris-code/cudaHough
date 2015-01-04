@@ -174,8 +174,8 @@ __global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long h
 
 template<typename retT, typename paramT>
 retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps) {
-	long dimTheta = (hps.maxTheta - hps.minTheta) * hps.stepsPerRadian + 1;
-	long dimR = (hps.maxR - hps.minR) * hps.stepsPerPixel + 1;
+	long dimTheta = hps.getDimTheta();
+	long dimR = hps.getDimR();
 	long borderExclude = 5;
 	paramT thetaStepSize = 1.0 / hps.stepsPerRadian;
 

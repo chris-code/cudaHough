@@ -44,11 +44,17 @@ int main(int argc, char **argv) {
 			hps); // Transform to Hough-space
 //	std::vector<std::pair<double, double> > best = cudaHough::extractMostLikelyLines<double, long>(accumulatorArray,
 //			linesToExtract);
+	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
+	CImg<long> cpuAccumulatorArray = gpuToCImg<long>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
 
 	CImgDisplay inputDisplay(inputImage, "Input", 1);
-	CImgDisplay binaryDisplay(gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height()), "Binary", 1);
-	CImgDisplay accumulatorDisplay(gpuToCImg<long>(accumulatorArray, inputImage.width(), inputImage.height()),
-			"Accumulator", 1);
+	CImgDisplay binaryDisplay(cpuBinaryImage, "Binary", 1);
+	CImgDisplay accumulatorDisplay(cpuAccumulatorArray, "Accumulator", 1);
+
+	cpuBinaryImage.normalize(0, 255);
+	cpuAccumulatorArray.normalize(0, 255);
+	cpuBinaryImage.save_png(std::string("binaryImage.png").insert(0, resultPath).c_str(), 1);
+	cpuAccumulatorArray.save_png(std::string("accumulatorArray.png").insert(0, resultPath).c_str(), 1);
 
 	while (!inputDisplay.is_closed())
 		inputDisplay.wait();

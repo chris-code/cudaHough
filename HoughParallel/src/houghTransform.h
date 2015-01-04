@@ -25,7 +25,12 @@ namespace cudaHough {
 
 			virtual ~HoughParameterSet() {
 			}
-
+			long getDimTheta() {
+				return (maxTheta - minTheta) * stepsPerRadian + 1;
+			}
+			long getDimR() {
+				return (maxR - minR) * stepsPerPixel + 1;
+			}
 			T minTheta;
 			T maxTheta;
 			T stepsPerRadian;
