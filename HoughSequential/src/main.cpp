@@ -436,13 +436,18 @@ int main(int argc, char **argv)
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
-	std::string filename = "../images/stoppschild3.jpg";
+	std::string filename;
+	std::string resultPath = "./";
 	if(argc >= 2)
 		filename = argv[1];
 	if (argc >= 3)
-		linesToExtract = atoi(argv[2]);
+		resultPath = argv[2];
 	if (argc >= 4)
-		excludeRadius = atoi(argv[3]);
+		thresholdDivisor = atoi(argv[3]);
+	if (argc >= 5)
+		excludeRadius = atoi(argv[4]);
+	if (argc >= 6)
+		linesToExtract = atoi(argv[5]);
 
 	CImg<bool> binaryImg = preprocess(filename.c_str(), thresholdDivisor);
 	clock_t preprocessEnd = std::clock();
@@ -455,7 +460,7 @@ int main(int argc, char **argv)
 	binaryImgDisp.move(50, 50);
 
 	// save binary image as PNG-file
-	(CImg<unsigned char> (binaryImg)).normalize(minColor, maxColor).save_png("results/binaryimg.png", 1);
+	(CImg<unsigned char> (binaryImg)).normalize(minColor, maxColor).save_png(std::string("binaryimg.png").insert(0, resultPath).c_str(), 1);
 
 	HoughParameterSet p(binaryImg.width(), binaryImg.height());
 
@@ -468,7 +473,7 @@ int main(int argc, char **argv)
 	std::cout << "Hough time: " << double(houghEnd - houghStart) / CLOCKS_PER_SEC << std::endl;
 
 	// save accumulator array as PNG-file
-	(CImg<unsigned char> (accumulatorArray)).normalize(minColor, maxColor).save_png("results/accumulatorarray.png", 1);
+	(CImg<unsigned char> (accumulatorArray)).normalize(minColor, maxColor).save_png(std::string("accumulatorarray.png").insert(0, resultPath).c_str(), 1);
 
 	// display the accumulator array
 	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
@@ -493,7 +498,7 @@ int main(int argc, char **argv)
 	std::cout << "Draw time: " << double(drawEnd - drawStart) / CLOCKS_PER_SEC << std::endl;
 
 	// save best line image as PNG-file
-	(CImg<unsigned char> (bestLinesImg)).normalize(minColor, maxColor).save_png("results/bestlines.png", 3);
+	(CImg<unsigned char> (bestLinesImg)).normalize(minColor, maxColor).save_png(std::string("bestlines.png").insert(0, resultPath).c_str(), 3);
 
 	// display the best lines image
 	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
