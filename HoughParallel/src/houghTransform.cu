@@ -194,9 +194,54 @@ retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPar
 	return accumulatorArray;
 }
 
+template<typename T>
+__global__ void isolateLocalMaximaGPU(T *accumulatorArray, T *localMaxima, long width, long height,
+		long excludeRadius) {
+	long x = blockIdx.x * blockDim.x + threadIdx.x;
+	long y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < width && y < height) {
+		long index = y * width + x;
+
+		for (long offsetX = -excludeRadius; offsetX <= excludeRadius; ++offsetX) {
+			long posX = ((x + offsetX) + width) % width;
+
+			for (long offsetY = -excludeRadius; offsetY <= excludeRadius; ++offsetY) {
+				long posY = ((y + offsetY) + height) % height;
+				long offsetIndex = ((posY * width) + posX);
+
+				if (accumulatorArray[offsetIndex] >= accumulatorArray[index] && offsetIndex != index) {
+					localMaxima[index] = -1;
+					return;
+				}
+			}
+		}
+
+		localMaxima[index] = accumulatorArray[index];
+	}
+}
+
+template<typename T>
+T * isolateLocalMaxima(T *accumulatorArray, long width, long height, long excludeRadius) {
+	T *localMaxima;
+	assertCheck(cudaMalloc(&localMaxima, width * height * sizeof(T)));
+
+	dim3 threads(16, 16);
+	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
+	isolateLocalMaximaGPU<T> <<<blocks, threads>>>(accumulatorArray, localMaxima, width, height, excludeRadius);
+	assertCheck(cudaGetLastError());
+
+	return localMaxima;
+}
+
+
 template<typename retT, typename paramT>
-std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(CImg<paramT> &accumulatorArray,
-		long linesToExtract) {
+std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
+		long excludeRadius, HoughParameterSet<retT>& hps) {
+	paramT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
+
+
+
 	return std::vector<std::pair<retT, retT> >(); // TODO return something for real
 }
 
@@ -209,7 +254,7 @@ template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizat
 template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
-template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
-		long linesToExtract);
-template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(CImg<long> &accumulatorArray,
-		long linesToExtract);
+template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
+		long linesToExtract, long excludeRadius, HoughParameterSet<float>& hps);
+template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
+		long linesToExtract, long excludeRadius, HoughParameterSet<double>& hps);

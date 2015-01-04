@@ -46,5 +46,6 @@ namespace cudaHough {
 	retT * transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps);
 
 	template<typename retT, typename paramT>
-	std::vector<std::pair<retT, retT> > extractMostLikelyLines(CImg<paramT> &accumulatorArray, long linesToExtract);
+	std::vector<std::pair<retT, retT> > extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
+			long excludeRadius, HoughParameterSet<retT>& hps);
 }
