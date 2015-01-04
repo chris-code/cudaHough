@@ -92,9 +92,9 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 
 			// if x is within the range of the image, color the pixel(x, y)
 			if (x >= 0 && x < image.width()) {
-				image(x, y, 0, 0) = color[2];
+				image(x, y, 0, 0) = color[0];
 				image(x, y, 0, 1) = color[1];
-				image(x, y, 0, 2) = color[0];
+				image(x, y, 0, 2) = color[2];
 			}
 		}
 	}
@@ -135,8 +135,10 @@ int main(int argc, char **argv) {
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	std::cout << "Extracting strongest lines..." << std::flush;
+	begin = clock();
 	std::vector<std::pair<double, double> > strongestLines = cudaHough::extractStrongestLines<long, double>(
 			accumulatorArray, linesToExtract, excludeRadius, hps);
+	end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
