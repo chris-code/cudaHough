@@ -146,8 +146,7 @@ bool * binarize(T *image, long width, long height, T threshold) {
 
 template<typename imgT>
 bool * cudaHough::preprocess(CImg<imgT> &image, imgT binarizationThreshold) {
-	CImg<imgT> cpuGrayValueImage = RGBToGrayValueImage<imgT>(image);
-	imgT *grayValueImage = cImgToGPU<imgT>(cpuGrayValueImage);
+	imgT *grayValueImage = cImgToGPU<imgT>(image);
 	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
 	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
 
@@ -245,7 +244,7 @@ thrust::device_vector<long> getSortedIndices(T *maxima, long width, long height)
 	thrust::device_ptr<T> maximaThrust(maxima);
 	thrust::sort_by_key(maximaThrust, maximaThrust + width * height, indices.begin(), thrust::greater<long>());
 
-	return indices;
+	return indices; // TODO don't return thrust::device_vector
 }
 
 template<typename accuT, typename paramT>

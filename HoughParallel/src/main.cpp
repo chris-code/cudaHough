@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <ctime>
 #include <CImg.h>
 #include "houghTransform.h"
 
@@ -29,17 +30,32 @@ void getOpts(int argc, char **argv, std::string &imgPath, std::string &resultPat
 	}
 }
 
+template<typename T>
+CImg<T> RGBToGrayValueImage(const CImg<T> &image) {
+	// initialize the gray value image
+	CImg<T> grayImg(image.width(), image.height(), 1, 1);
+
+	// iterate over the image
+	for (long i = 0; i < image.width(); ++i)
+		for (long j = 0; j < image.height(); ++j) {
+			// The gray value is calculated by the following formula: 0.21 R + 0.72 G + 0.07 B
+			grayImg(i, j, 0, 0) = 0.21 * image(i, j, 0, 0) + 0.72 * image(i, j, 0, 1) + 0.07 * image(i, j, 0, 2);
+		}
+
+	return grayImg;
+}
+
 // create an unsigned char color image from a binary image
 CImg<unsigned char> binaryToColorImg(const CImg<bool> &binaryImg) {
 	// initialize the color image with the color black
 	CImg<unsigned char> colorImg(binaryImg.width(), binaryImg.height(), 1, 3, 0);
 
 	// iterate over the binary image
-	for (int x = 0; x < binaryImg.width(); x++) {
-		for (int y = 0; y < binaryImg.height(); y++) {
+	for (int x = 0; x < binaryImg.width(); ++x) {
+		for (int y = 0; y < binaryImg.height(); ++y) {
 			// if there is a 1 in the binary image, set all three RGB-values to 255
 			if (binaryImg(x, y, 0, 0)) {
-				for (int k = 0; k < 3; k++)
+				for (int k = 0; k < 3; ++k)
 					colorImg(x, y, 0, k) = 255;
 			}
 		}
@@ -55,7 +71,7 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 	if ((theta >= cimg::PI / 4 && theta <= cimg::PI * 3 / 4)
 			|| (theta >= cimg::PI * 5 / 4 && theta <= cimg::PI * 7 / 4)) {
 		// iterate horizontally over the image
-		for (int x = 0; x < image.width(); x++) {
+		for (int x = 0; x < image.width(); ++x) {
 			// calculate y from r, Theta and x
 			int y = round((r - x * cos(theta)) / sin(theta));
 
@@ -70,7 +86,7 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 	// it's a rather vertical line (sin(Theta) could be 0)
 	else {
 		// iterate vertically over the image
-		for (int y = 0; y < image.height(); y++) {
+		for (int y = 0; y < image.height(); ++y) {
 			// calculate x from r, Theta and y
 			int x = round((r - y * sin(theta)) / cos(theta));
 
@@ -102,12 +118,26 @@ int main(int argc, char **argv) {
 	getOpts(argc, argv, filename, resultPath, threshold, excludeRadius, linesToExtract);
 
 	CImg<double> inputImage(filename.c_str()); // Load image
+	inputImage = RGBToGrayValueImage<double>(inputImage);
 	cudaHough::HoughParameterSet<double> hps(inputImage.width(), inputImage.height());
+
+	std::cout << "Preprocessing..." << std::flush;
+	clock_t begin = clock();
 	bool *binaryImage = cudaHough::preprocess<double>(inputImage, threshold); // Transform to a binary image
+	clock_t end = clock();
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
+
+	std::cout << "Calculating accumulator array..." << std::flush;
+	begin = clock();
 	long *accumulatorArray = cudaHough::transform<long, double>(binaryImage, inputImage.width(), inputImage.height(),
 			hps); // Transform to Hough-space
+	end = clock();
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
+
+	std::cout << "Extracting strongest lines..." << std::flush;
 	std::vector<std::pair<double, double> > strongestLines = cudaHough::extractStrongestLines<long, double>(
 			accumulatorArray, linesToExtract, excludeRadius, hps);
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
 	CImg<long> cpuAccumulatorArray = gpuToCImg<long>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
