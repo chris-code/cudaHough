@@ -1,3 +1,7 @@
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/sequence.h>
+#include <thrust/sort.h>
 #include "houghTransform.h"
 
 // this method transforms a rgb-color image to an grayvalue image
@@ -234,15 +238,66 @@ T * isolateLocalMaxima(T *accumulatorArray, long width, long height, long exclud
 	return localMaxima;
 }
 
+//__global__ void initializeWithRange(long *array, long size) {
+//	long x = blockIdx.x * blockDim.x + threadIdx.x;
+//
+//	if (x < size)
+//		array[x] = x;
+//}
+
+
+template<typename T>
+thrust::device_vector<long> getSortedIndices(T* maxima, long width, long height)
+{
+//	long *indices;
+//	assertCheck(cudaMalloc(&indices, width * height * sizeof(long)));
+
+//	// TODO Generate this with thrust library
+//	dim3 threads(64);
+//	dim3 blocks(((width * height) + threads.x - 1) / threads.x);
+//	initializeWithRange <<<blocks, threads>>>(indices, width * height);
+
+	thrust::device_vector<long> indices(width * height);
+	thrust::sequence(indices.begin(), indices.end());
+
+	thrust::device_ptr<T> maximaThrust(maxima);
+
+	thrust::sort_by_key(maximaThrust, maximaThrust + width * height, indices.begin(), thrust::greater<long>());
+
+	return indices;
+}
+
 
 template<typename retT, typename paramT>
 std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
 		long excludeRadius, HoughParameterSet<retT>& hps) {
 	paramT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
 
+	thrust::device_vector<long> sortedIndices = getSortedIndices<paramT>(localMaxima, hps.getDimTheta(), hps.getDimR());
 
+	thrust::host_vector<long> cpuSortedIndices(linesToExtract);
+	thrust::copy(sortedIndices.begin(), sortedIndices.begin() + linesToExtract, cpuSortedIndices.begin());
 
-	return std::vector<std::pair<retT, retT> >(); // TODO return something for real
+	std::vector<std::pair<retT, retT> > bestLines;
+
+	// compute the stepsize in Theta- and r-dimension
+	double stepSizeTheta = 1 / hps.stepsPerRadian;
+	double stepSizeR = 1 / hps.stepsPerPixel;
+
+	for (int i = 0; i < linesToExtract; i++)
+	{
+		long x = cpuSortedIndices[i] % hps.getDimTheta();
+		long y = cpuSortedIndices[i] / hps.getDimTheta();
+
+		double theta = hps.minTheta + stepSizeTheta * x;
+		double r = hps.minR + stepSizeR * y;
+
+		bestLines.push_back(std::make_pair<double, double>(theta, r));
+	}
+
+	cudaFree(localMaxima);
+
+	return bestLines; // TODO return something for real
 }
 
 // Instantiate template methods so they are available to the compiler
