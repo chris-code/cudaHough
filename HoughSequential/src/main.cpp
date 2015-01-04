@@ -296,7 +296,11 @@ std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int exclude
 					int posY = ((y + j) + image.height()) % image.height();
 
 					if (image(posX, posY, 0, 0) >= image(x, y, 0, 0) && (posX != x || posY != y))
+					{
 						isMaximum = false;
+						i = excludeRadius + 1; // TODO find nicer method to end loops
+						j = excludeRadius + 1;
+					}
 				}
 			}
 
