@@ -182,7 +182,6 @@ retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPar
 	long dimTheta = hps.getDimTheta();
 	long dimR = hps.getDimR();
 	long borderExclude = 5;
-	paramT thetaStepSize = 1.0 / hps.stepsPerRadian;
 
 	retT *accumulatorArray;
 	assertCheck(cudaMalloc(&accumulatorArray, dimTheta * dimR * sizeof(retT)));
@@ -191,7 +190,7 @@ retT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPar
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	computeAccumulatorArrayGPU<retT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
-			accumulatorArray, hps.minTheta, hps.maxTheta, thetaStepSize, hps.stepsPerRadian, hps.minR,
+			accumulatorArray, hps.minTheta, hps.maxTheta, hps.getThetaStepSize(), hps.stepsPerRadian, hps.minR,
 			hps.stepsPerPixel, dimTheta);
 	assertCheck(cudaGetLastError());
 
@@ -238,39 +237,20 @@ T * isolateLocalMaxima(T *accumulatorArray, long width, long height, long exclud
 	return localMaxima;
 }
 
-//__global__ void initializeWithRange(long *array, long size) {
-//	long x = blockIdx.x * blockDim.x + threadIdx.x;
-//
-//	if (x < size)
-//		array[x] = x;
-//}
-
-
 template<typename T>
-thrust::device_vector<long> getSortedIndices(T* maxima, long width, long height)
-{
-//	long *indices;
-//	assertCheck(cudaMalloc(&indices, width * height * sizeof(long)));
-
-//	// TODO Generate this with thrust library
-//	dim3 threads(64);
-//	dim3 blocks(((width * height) + threads.x - 1) / threads.x);
-//	initializeWithRange <<<blocks, threads>>>(indices, width * height);
-
+thrust::device_vector<long> getSortedIndices(T *maxima, long width, long height) {
 	thrust::device_vector<long> indices(width * height);
 	thrust::sequence(indices.begin(), indices.end());
 
 	thrust::device_ptr<T> maximaThrust(maxima);
-
 	thrust::sort_by_key(maximaThrust, maximaThrust + width * height, indices.begin(), thrust::greater<long>());
 
 	return indices;
 }
 
-
 template<typename retT, typename paramT>
 std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
-		long excludeRadius, HoughParameterSet<retT>& hps) {
+		long excludeRadius, HoughParameterSet<retT> &hps) {
 	paramT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
 
 	thrust::device_vector<long> sortedIndices = getSortedIndices<paramT>(localMaxima, hps.getDimTheta(), hps.getDimR());
@@ -279,25 +259,19 @@ std::vector<std::pair<retT, retT> > cudaHough::extractMostLikelyLines(paramT *ac
 	thrust::copy(sortedIndices.begin(), sortedIndices.begin() + linesToExtract, cpuSortedIndices.begin());
 
 	std::vector<std::pair<retT, retT> > bestLines;
-
-	// compute the stepsize in Theta- and r-dimension
-	double stepSizeTheta = 1 / hps.stepsPerRadian;
-	double stepSizeR = 1 / hps.stepsPerPixel;
-
-	for (int i = 0; i < linesToExtract; i++)
-	{
+	for (int i = 0; i < linesToExtract; i++) {
 		long x = cpuSortedIndices[i] % hps.getDimTheta();
 		long y = cpuSortedIndices[i] / hps.getDimTheta();
 
-		double theta = hps.minTheta + stepSizeTheta * x;
-		double r = hps.minR + stepSizeR * y;
+		double theta = hps.minTheta + hps.getThetaStepSize() * x;
+		double r = hps.minR + hps.getRstepSize() * y;
 
 		bestLines.push_back(std::make_pair<double, double>(theta, r));
 	}
 
 	cudaFree(localMaxima);
 
-	return bestLines; // TODO return something for real
+	return bestLines;
 }
 
 // Instantiate template methods so they are available to the compiler
@@ -310,6 +284,6 @@ template bool * cudaHough::preprocess<double>(CImg<double> &image, double binari
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
 template std::vector<std::pair<float, float> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
-		long linesToExtract, long excludeRadius, HoughParameterSet<float>& hps);
+		long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
 template std::vector<std::pair<double, double> > cudaHough::extractMostLikelyLines(long *accumulatorArray,
-		long linesToExtract, long excludeRadius, HoughParameterSet<double>& hps);
+		long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);

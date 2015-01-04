@@ -18,12 +18,17 @@ namespace cudaHough {
 				this->minTheta = 0;
 				this->maxTheta = cimg_library::cimg::PI;
 				this->stepsPerRadian = 57.295 * 2;
-				this->stepsPerPixel = 2;
+				this->stepsPerPixel = 2.0;
 				this->minR = -sqrt(width * width + height * height);
 				this->maxR = -minR;
 			}
-
 			virtual ~HoughParameterSet() {
+			}
+			T getThetaStepSize() {
+				return 1.0 / stepsPerRadian;
+			}
+			T getRstepSize() {
+				return 1.0 / stepsPerPixel;
 			}
 			long getDimTheta() {
 				return (maxTheta - minTheta) * stepsPerRadian + 1;
@@ -47,5 +52,5 @@ namespace cudaHough {
 
 	template<typename retT, typename paramT>
 	std::vector<std::pair<retT, retT> > extractMostLikelyLines(paramT *accumulatorArray, long linesToExtract,
-			long excludeRadius, HoughParameterSet<retT>& hps);
+			long excludeRadius, HoughParameterSet<retT> &hps);
 }
