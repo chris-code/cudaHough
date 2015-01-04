@@ -5,19 +5,37 @@
 
 using namespace cimg_library;
 
-int main(int argc, char **argv) {
-	std::string filename = "images/stoppschild3.jpg";
-	double threshold = 0;
-	short linesToExtract = 10;
+void getOpts(int argc, char **argv, std::string &imgPath, std::string &resultPath, double &threshold,
+		long &excludeRadius, long &linesToExtract) {
 	if (argc >= 2) {
-		filename = argv[1];
+		imgPath = argv[1];
+	} else {
+		std::cout << "Usage: " << argv[0] << "pathToImage [resultFolder] [threshold] [excludeRadius] [lines]"
+				<< std::endl;
+		exit(EXIT_FAILURE);
 	}
+
 	if (argc >= 3) {
-		threshold = std::atof(argv[2]);
+		resultPath = argv[2];
 	}
 	if (argc >= 4) {
-		linesToExtract = std::atoi(argv[3]);
+		threshold = std::atof(argv[3]);
 	}
+	if (argc >= 5) {
+		excludeRadius = std::atoi(argv[4]);
+	}
+	if (argc >= 6) {
+		linesToExtract = std::atoi(argv[5]);
+	}
+}
+
+int main(int argc, char **argv) {
+	std::string filename;
+	std::string resultPath = "./";
+	double threshold = 0;
+	long excludeRadius = 5;
+	long linesToExtract = 10;
+	getOpts(argc, argv, filename, resultPath, threshold, excludeRadius, linesToExtract);
 
 	CImg<double> inputImage(filename.c_str()); // Load image
 	cudaHough::HoughParameterSet<double> hps(inputImage.width(), inputImage.height());
