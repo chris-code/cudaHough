@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	CImg<double> img(filename.c_str());
 
 	// convert it to a grayvalue image
-	CImg<double> grayImg = RGBToGrayValueImage(img);
+	CImg<double> grayImg = RGBToGrayValueImage<double>(img);
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
@@ -85,10 +85,10 @@ int main(int argc, char **argv)
 	std::cout << "Best lines time: " << double(bestEnd - bestStart) / CLOCKS_PER_SEC << std::endl;
 
 	// draw the lines and measure time
-	CImg<unsigned char> bestLinesImg = binaryToColorImg(binaryImg);
-	double redColor[] = {255, 0, 0};
+	CImg<unsigned char> bestLinesImg = binaryToColorImg<unsigned char>(binaryImg);
+	unsigned char redColor[] = {255, 0, 0};
 	clock_t drawStart = std::clock();
-	drawLines(bestLinesImg, best, redColor);
+	drawLines<unsigned char>(bestLinesImg, best, redColor);
 	clock_t drawEnd = std::clock();
 
 	// print how long it took to draw the k best lines
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 	bestLinesDisp.move(0, 0);
 
 	// Wait until display is closed
-	while (!bestLinesDisp._is_closed)
-		bestLinesDisp.wait();
+	while (!binaryImgDisp._is_closed)
+		binaryImgDisp.wait();
 }
 
