@@ -3,10 +3,11 @@
 
 
 // this methods convolves an gray value image with a filter using the Wrap-Around approach
-CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, const int offsetX, const int offsetY)
+template <typename imgT>
+CImg<imgT> convolve(const CImg<imgT>& image, const CImg<imgT>& filter, const int offsetX, const int offsetY)
 {
 	// initialize the convolved image
-	CImg<double> convolvedImg(image.width(), image.height(), 1, 1);
+	CImg<imgT> convolvedImg(image.width(), image.height(), 1, 1);
 
 	// iterate over image
 	for (int imgX = 0; imgX < image.width(); imgX++)
@@ -14,7 +15,7 @@ CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, con
 		for (int imgY = 0; imgY < image.height(); imgY++)
 		{
 			// set the temporary sum to 0
-			double tempSum = 0;
+			imgT tempSum = 0;
 
 			// iterate over filter in x dimension
 			for (int filX = 0; filX < filter.width(); filX++)
@@ -44,10 +45,11 @@ CImg<double> convolve(const CImg<double>& image, const CImg<double>& filter, con
 
 
 // this method calculates the gradient strength of an gray value image given the results of the convolution with SobelX and SobelY
-CImg<double> calculateGradientStrength(const CImg<double>& sobelX, const CImg<double>& sobelY)
+template <typename imgT>
+CImg<imgT> calculateGradientStrength(const CImg<imgT>& sobelX, const CImg<imgT>& sobelY)
 {
 	// initialize the gradient strength image
-	CImg<double> strengthImg(sobelX.width(), sobelX.height(), 1, 1);
+	CImg<imgT> strengthImg(sobelX.width(), sobelX.height(), 1, 1);
 
 	// iterate over the strength image
 	for (int x = 0; x < sobelX.width(); x++)
@@ -61,9 +63,10 @@ CImg<double> calculateGradientStrength(const CImg<double>& sobelX, const CImg<do
 
 
 // this methods normalizes an image so that the sum of its pixels equals 1
-CImg<double> normalize(const CImg<double>& filter)
+template <typename imgT>
+CImg<imgT> normalize(const CImg<imgT>& filter)
 {
-	double sum = 0.;
+	imgT sum = 0.;
 
 	// get the sum of all filter values
 	for (int i = 0; i < filter.width(); i++)
@@ -75,7 +78,7 @@ CImg<double> normalize(const CImg<double>& filter)
 	}
 
 	// initialize the normalized filter
-	CImg<double> normalizedFilter(filter.width(), filter.height());
+	CImg<imgT> normalizedFilter(filter.width(), filter.height());
 
 	// divide every value in the filter by the sum
 	for (int i = 0; i < filter.width(); i++)
@@ -92,7 +95,8 @@ CImg<double> normalize(const CImg<double>& filter)
 
 
 // returns a binary image given a grayvalue image
-CImg<bool> makeBinaryImage(const CImg<double>& image, const double threshold)
+template <typename imgT>
+CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT threshold)
 {
 	// initialize the binary image
 	CImg<bool> binaryImg(image.width(), image.height(), 1, 1);
@@ -113,6 +117,7 @@ CImg<bool> makeBinaryImage(const CImg<double>& image, const double threshold)
 
 
 // this methods converts the input image to the binary image needed by the Hough transform
+//template <typename imgT>
 CImg<bool> hough::preprocess(CImg<double>& image, double thresholdDivisor)
 {
 	// create Sobel X filter
@@ -124,19 +129,19 @@ CImg<bool> hough::preprocess(CImg<double>& image, double thresholdDivisor)
 	CImg<double> sobelY(sobelYarr, 3, 3);
 
 	// convolve Image with both Sobel filters
-	CImg<double> sobelXImg = convolve(image, sobelX, 1, 1);
-	CImg<double> sobelYImg = convolve(image, sobelY, 1, 1);
+	CImg<double> sobelXImg = convolve<double>(image, sobelX, 1, 1);
+	CImg<double> sobelYImg = convolve<double>(image, sobelY, 1, 1);
 
-	// calculate the gradient strength
-	CImg<double> strengthImg = calculateGradientStrength(sobelXImg, sobelYImg);
+	// calculate the gradient strengthdouble
+	CImg<double> strengthImg = calculateGradientStrength<double>(sobelXImg, sobelYImg);
 
 	// create binomial filter
 	double binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
 	CImg<double> binomialUnnormalized(binomialArr, 3, 3);
-	CImg<double> binomial = normalize(binomialUnnormalized);
+	CImg<double> binomial = normalize<double>(binomialUnnormalized);
 
 	// smooth image
-	strengthImg = convolve(strengthImg, binomial, 4, 4);
+	strengthImg = convolve<double>(strengthImg, binomial, 4, 4);
 
 	// calculate the binary image of the gradient strength image
 	double threshold = (strengthImg.min() + strengthImg.max()) / thresholdDivisor;
