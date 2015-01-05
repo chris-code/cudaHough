@@ -1,34 +1,11 @@
 #include <vector>
 #include <string>
 #include <ctime>
+#include <unistd.h>
 #include <CImg.h>
 #include "houghTransform.h"
 
 using namespace cimg_library;
-
-void getOpts(int argc, char **argv, std::string &imgPath, std::string &resultPath, double &threshold,
-		long &excludeRadius, long &linesToExtract) {
-	if (argc >= 2) {
-		imgPath = argv[1];
-	} else {
-		std::cout << "Usage: " << argv[0] << "pathToImage [resultFolder] [threshold] [excludeRadius] [lines]"
-				<< std::endl;
-		exit(EXIT_FAILURE);
-	}
-
-	if (argc >= 3) {
-		resultPath = argv[2];
-	}
-	if (argc >= 4) {
-		threshold = std::atof(argv[3]);
-	}
-	if (argc >= 5) {
-		excludeRadius = std::atoi(argv[4]);
-	}
-	if (argc >= 6) {
-		linesToExtract = std::atoi(argv[5]);
-	}
-}
 
 template<typename T>
 CImg<T> RGBToGrayValueImage(const CImg<T> &image) {
@@ -115,7 +92,39 @@ int main(int argc, char **argv) {
 	double threshold = 0;
 	long excludeRadius = 5;
 	long linesToExtract = 10;
-	getOpts(argc, argv, filename, resultPath, threshold, excludeRadius, linesToExtract);
+	char option;
+	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1) {
+		switch (option) {
+			case 't':
+				threshold = std::atof(optarg);
+				break;
+			case 'e':
+				excludeRadius = std::atoi(optarg);
+				break;
+			case 'l':
+				linesToExtract = std::atoi(optarg);
+				break;
+			case 'o':
+				resultPath = optarg;
+				break;
+			case '?':
+				if(optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
+					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
+				}
+				else {
+					std::cerr << "Unknown option " << optopt << std::endl;
+				}
+				exit(EXIT_FAILURE);
+				break;
+			default:
+				exit(EXIT_FAILURE);
+		}
+	}
+	if(optind >= argc) {
+		std::cerr << "Path to image required" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+	filename = argv[optind];
 
 	CImg<double> inputImage(filename.c_str()); // Load image
 	inputImage = RGBToGrayValueImage<double>(inputImage);
