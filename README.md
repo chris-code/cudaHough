@@ -8,7 +8,7 @@ straight lines is implemented as both a sequential and a parallel version.
 
 Technical details
 ------------------------
-Images on the GPU are represented as flat (1D) arrays in **column-major format**.
+Images on the GPU are represented as flat (1D) arrays in **row-major format**.
 
 Throughout the parallel version, templates are used. This can get quite messy in C++,
 so here are our naming conventions for template type names:
