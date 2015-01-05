@@ -1,11 +1,8 @@
-#include <CImg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <iostream>
 #include <vector>
-#include <utility>
 #include <ctime>
+#include <iostream>
+#include <unistd.h>
+#include <CImg.h>
 #include "houghTransform.h"
 #include "houghHelpers.hpp"
 
@@ -26,16 +23,43 @@ int main(int argc, char **argv)
 
 	std::string filename;
 	std::string resultPath = "./";
-	if(argc >= 2)
-		filename = argv[1];
-	if (argc >= 3)
-		resultPath = argv[2];
-	if (argc >= 4)
-		thresholdDivisor = atoi(argv[3]);
-	if (argc >= 5)
-		excludeRadius = atoi(argv[4]);
-	if (argc >= 6)
-		linesToExtract = atoi(argv[5]);
+	char option;
+	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1)
+	{
+		switch (option)
+		{
+			case 't':
+				thresholdDivisor = std::atof(optarg);
+				break;
+			case 'e':
+				excludeRadius = std::atoi(optarg);
+				break;
+			case 'l':
+				linesToExtract = std::atoi(optarg);
+				break;
+			case 'o':
+				resultPath = optarg;
+				break;
+			case '?':
+				if(optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
+					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
+				}
+				else {
+					std::cerr << "Unknown option " << optopt << std::endl;
+				}
+				exit(EXIT_FAILURE);
+				break;
+			default:
+				exit(EXIT_FAILURE);
+		}
+	}
+	if(optind >= argc)
+	{
+		std::cerr << "Path to image required" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+	filename = argv[optind];
+	std::cout << "Outpath: " << resultPath << std::endl;
 
 	// load image from filename
 	CImg<double> img(filename.c_str());
