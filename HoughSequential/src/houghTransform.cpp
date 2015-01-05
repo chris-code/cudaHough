@@ -117,55 +117,55 @@ CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT threshold)
 
 
 // this methods converts the input image to the binary image needed by the Hough transform
-//template <typename imgT>
-CImg<bool> hough::preprocess(CImg<double>& image, double thresholdDivisor)
+template <typename imgT>
+CImg<bool> hough::preprocess(CImg<imgT>& image, imgT thresholdDivisor)
 {
 	// create Sobel X filter
-	double sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
-	CImg<double> sobelX(sobelXarr, 3, 3);
+	imgT sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	CImg<imgT> sobelX(sobelXarr, 3, 3);
 
 	// create Sobel Y filter
-	double sobelYarr[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
-	CImg<double> sobelY(sobelYarr, 3, 3);
+	imgT sobelYarr[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	CImg<imgT> sobelY(sobelYarr, 3, 3);
 
 	// convolve Image with both Sobel filters
-	CImg<double> sobelXImg = convolve<double>(image, sobelX, 1, 1);
-	CImg<double> sobelYImg = convolve<double>(image, sobelY, 1, 1);
+	CImg<imgT> sobelXImg = convolve<imgT>(image, sobelX, 1, 1);
+	CImg<imgT> sobelYImg = convolve<imgT>(image, sobelY, 1, 1);
 
-	// calculate the gradient strengthdouble
-	CImg<double> strengthImg = calculateGradientStrength<double>(sobelXImg, sobelYImg);
+	// calculate the gradient strength
+	CImg<imgT> strengthImg = calculateGradientStrength<imgT>(sobelXImg, sobelYImg);
 
 	// create binomial filter
-	double binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
-	CImg<double> binomialUnnormalized(binomialArr, 3, 3);
-	CImg<double> binomial = normalize<double>(binomialUnnormalized);
+	imgT binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
+	CImg<imgT> binomialUnnormalized(binomialArr, 3, 3);
+	CImg<imgT> binomial = normalize<imgT>(binomialUnnormalized);
 
 	// smooth image
-	strengthImg = convolve<double>(strengthImg, binomial, 4, 4);
+	strengthImg = convolve<imgT>(strengthImg, binomial, 4, 4);
 
 	// calculate the binary image of the gradient strength image
-	double threshold = (strengthImg.min() + strengthImg.max()) / thresholdDivisor;
+	imgT threshold = (strengthImg.min() + strengthImg.max()) / thresholdDivisor;
 
 	// make and return binary image
-	return makeBinaryImage(strengthImg, threshold);
+	return makeBinaryImage<imgT>(strengthImg, threshold);
 }
 
 
 // this methods computes the accumulator array
-CImg<long> hough::transform(const CImg<bool>& binaryImg, const hough::HoughParameterSet<double> & p)
+template<typename accuT, typename paramT>
+CImg<accuT> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<paramT> & p)
 {
 	// calculate the dimensions of the accumulator array by the given HoughParameterSet
-	int dimTheta = (p.maxTheta - p.minTheta) * p.stepsPerRadian; //FIXME dimensions too small
-	int dimR = (p.maxR - p.minR) * p.stepsPerPixel;
+	int dimTheta = p.getDimTheta();
+	int dimR = p.getDimR();
 
 	// initialize the border exclude value, which defines how much of the border is not considered
 	int borderExclude = 5;
 
 	// calculate the thetaStepsize by inverting the steps per radian
-	double thetaStepsize = 1 / p.stepsPerRadian;
 
 	// initialize the accumulator array as black image (initially every line has 0 votes)
-	CImg<long> accumulatorArray(dimTheta, dimR, 1, 1, 0);
+	CImg<accuT> accumulatorArray(dimTheta, dimR, 1, 1, 0);
 
 	// iterate over the image and ignore some points at the border
 	for (int x = borderExclude; x < binaryImg.width() - borderExclude; x++)
@@ -176,10 +176,10 @@ CImg<long> hough::transform(const CImg<bool>& binaryImg, const hough::HoughParam
 			if (binaryImg(x, y, 0, 0))
 			{
 				// iterate over all possible values for Theta
-				for (double theta = p.minTheta; theta <= p.maxTheta; theta += thetaStepsize)
+				for (paramT theta = p.minTheta; theta <= p.maxTheta; theta += p.getThetaStepSize())
 				{
 					// calculate the r value
-					double r = x * cos(theta) + y * sin(theta);
+					paramT r = x * cos(theta) + y * sin(theta);
 
 					// calculate the index in the accumulator array
 					int thetaIdx = int((theta - p.minTheta) * p.stepsPerRadian);
@@ -198,8 +198,8 @@ CImg<long> hough::transform(const CImg<bool>& binaryImg, const hough::HoughParam
 
 
 // this methods finds local optima in an image
-template <typename T>
-std::vector< std::vector<int> > getLocalMaxima(const CImg<T>& image, int excludeRadius)
+template <typename imgT>
+std::vector< std::vector<int> > getLocalMaxima(const CImg<imgT>& image, int excludeRadius)
 {
 	// declare vector that shall save the maxima
 	std::vector< std::vector<int> > maxima;
@@ -257,8 +257,9 @@ bool compareLines(std::vector<int> v1, std::vector<int> v2)
 
 
 // this methods extracts the k best lines from the accumulator array
-std::vector< std::pair<double, double> > hough::extractStrongestLines(const CImg<long>& accArray,
-		const hough::HoughParameterSet<double>& p, int k, int excludeRadius)
+template<typename accuT, typename paramT>
+std::vector< std::pair<paramT, paramT> > hough::extractStrongestLines(CImg<accuT>& accArray,
+		hough::HoughParameterSet<paramT>& p, int k, int excludeRadius)
 {
 	// compute local maxima
 	std::vector< std::vector<int> > maxima = getLocalMaxima(accArray, excludeRadius);
@@ -267,18 +268,14 @@ std::vector< std::pair<double, double> > hough::extractStrongestLines(const CImg
 	std::sort(maxima.begin(), maxima.end(), compareLines);
 
 	// extract the k best lines
-	std::vector< std::pair<double, double> > kBest;
-
-	// compute the stepsize in Theta- and r-dimension
-	double stepSizeTheta = 1 / p.stepsPerRadian;
-	double stepSizeR = 1 / p.stepsPerPixel;
+	std::vector< std::pair<paramT, paramT> > kBest;
 
 	// take the k best lines from the sorted lines vector
 	for (int i = 0; i < k; i++)
 	{
 		// compute Theta and r as real values (not the positions in the accumulator array!)
-		double theta = p.minTheta + stepSizeTheta * maxima[i][0];
-		double r = p.minR + stepSizeR * maxima[i][1];
+		paramT theta = p.minTheta + p.getThetaStepSize() * maxima[i][0];
+		paramT r = p.minR + p.getRstepSize() * maxima[i][1];
 
 		// add the line to the best lines vector
 		kBest.push_back(std::make_pair(theta, r));
@@ -286,3 +283,13 @@ std::vector< std::pair<double, double> > hough::extractStrongestLines(const CImg
 
 	return kBest;
 }
+
+// Instantiate template methods so they are available to the compiler
+template CImg<bool> hough::preprocess(CImg<float>& image, float thresholdDivisor);
+template CImg<bool> hough::preprocess(CImg<double>& image, double thresholdDivisor);
+template CImg<long> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<float> & p);
+template CImg<long> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<double> & p);
+template std::vector< std::pair<float, float> > hough::extractStrongestLines(CImg<long>& accArray,
+		hough::HoughParameterSet<float>& p, int k, int excludeRadius);
+template std::vector< std::pair<double, double> > hough::extractStrongestLines(CImg<long>& accArray,
+		hough::HoughParameterSet<double>& p, int k, int excludeRadius);

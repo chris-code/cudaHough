@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 
 	// compute the binary image in the preprocess()-method and measure time
 	clock_t preprocessStart = std::clock();
-	CImg<bool> binaryImg = hough::preprocess(grayImg, thresholdDivisor);
+	CImg<bool> binaryImg = hough::preprocess<double>(grayImg, thresholdDivisor);
 	clock_t preprocessEnd = std::clock();
 
 	// print how much time it took to compute the binary image
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 
 	// compute the accumulator array and measure time
 	clock_t houghStart = std::clock();
-	CImg<long> accumulatorArray = hough::transform(binaryImg, p);
+	CImg<long> accumulatorArray = hough::transform<long, double>(binaryImg, p);
 	clock_t houghEnd = std::clock();
 
 	// print how much time it took to compute the accumulator array
@@ -77,8 +77,8 @@ int main(int argc, char **argv)
 
 	// compute the k best lines and measure time
 	clock_t bestStart = std::clock();
-	std::vector< std::pair<double, double> > best = hough::extractStrongestLines(accumulatorArray, p, linesToExtract,
-			excludeRadius);
+	std::vector< std::pair<double, double> > best = hough::extractStrongestLines<long, double>(accumulatorArray, p,
+			linesToExtract, excludeRadius);
 	clock_t bestEnd = std::clock();
 
 	// print how much time it took to compute the k best lines

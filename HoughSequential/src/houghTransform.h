@@ -40,8 +40,13 @@ namespace hough {
 			paramT maxR;
 	};
 
-	CImg<bool> preprocess(CImg<double>& image, double thresholdDivisor);
-	CImg<long> transform(const CImg<bool>& binaryImg, const hough::HoughParameterSet<double> & p);
-	std::vector< std::pair<double, double> > extractStrongestLines(const CImg<long>& accArray,
-			const hough::HoughParameterSet<double>& p, int k, int excludeRadius);
+	template <typename imgT>
+	CImg<bool> preprocess(CImg<imgT>& image, imgT thresholdDivisor);
+
+	template<typename accuT, typename paramT>
+	CImg<accuT> transform(CImg<bool>& binaryImg, hough::HoughParameterSet<paramT> & p);
+
+	template<typename accuT, typename paramT>
+	std::vector< std::pair<paramT, paramT> > extractStrongestLines(CImg<accuT>& accArray,
+			hough::HoughParameterSet<paramT>& p, int k, int excludeRadius);
 }
