@@ -1,5 +1,11 @@
 #pragma once
 
+#include <vector>
+#include "CImg.h"
+
+using namespace cimg_library;
+
+
 namespace hough {
 	template<typename paramT>
 	class HoughParameterSet {
@@ -33,4 +39,9 @@ namespace hough {
 			paramT minR;
 			paramT maxR;
 	};
+
+	CImg<bool> preprocess(CImg<double>& image, double thresholdDivisor);
+	CImg<long> transform(const CImg<bool>& binaryImg, const hough::HoughParameterSet<double> & p);
+	std::vector< std::pair<double, double> > extractStrongestLines(const CImg<long>& accArray,
+			const hough::HoughParameterSet<double>& p, int k, int excludeRadius);
 }

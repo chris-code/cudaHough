@@ -44,37 +44,6 @@ CImg<double> RGBToGrayValueImage(const CImg<double>& image)
 }
 
 
-// this methods normalizes an image so that the sum of its pixels equals 1
-CImg<double> normalize(const CImg<double>& filter)
-{
-	double sum = 0.;
-
-	// get the sum of all filter values
-	for (int i = 0; i < filter.width(); i++)
-	{
-		for (int j = 0; j < filter.height(); j++)
-		{
-			sum += filter(i, j, 0, 0);
-		}
-	}
-
-	// initialize the normalized filter
-	CImg<double> normalizedFilter(filter.width(), filter.height());
-
-	// divide every value in the filter by the sum
-	for (int i = 0; i < filter.width(); i++)
-	{
-		for (int j = 0; j < filter.height(); j++)
-		{
-			normalizedFilter(i, j, 0, 0) = filter(i, j, 0, 0) / sum;
-		}
-	}
-
-	// return the normalized filter
-	return normalizedFilter;
-}
-
-
 // create an unsigned char color image from a binary image
 CImg<unsigned char> binaryToColorImg(const CImg<bool>& binaryImg)
 {
