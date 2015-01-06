@@ -59,7 +59,6 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	filename = argv[optind];
-	std::cout << "Outpath: " << resultPath << std::endl;
 
 	// load image from filename
 	CImg<double> img(filename.c_str());

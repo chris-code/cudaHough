@@ -118,7 +118,7 @@ CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT threshold)
 
 // this methods converts the input image to the binary image needed by the Hough transform
 template <typename imgT>
-CImg<bool> hough::preprocess(CImg<imgT>& image, imgT thresholdDivisor)
+CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold)
 {
 	// create Sobel X filter
 	imgT sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
@@ -144,10 +144,12 @@ CImg<bool> hough::preprocess(CImg<imgT>& image, imgT thresholdDivisor)
 	strengthImg = convolve<imgT>(strengthImg, binomial, 4, 4);
 
 	// calculate the binary image of the gradient strength image
-	imgT threshold = (strengthImg.min() + strengthImg.max()) / thresholdDivisor;
+	imgT strengthImgMin = strengthImg.min();
+	imgT strengthImgMax = strengthImg.max();
+	imgT absoluteThreshold = (strengthImgMax - strengthImgMin) * relativeThreshold + strengthImgMin;
 
 	// make and return binary image
-	return makeBinaryImage<imgT>(strengthImg, threshold);
+	return makeBinaryImage<imgT>(strengthImg, absoluteThreshold);
 }
 
 

@@ -132,23 +132,28 @@ __global__ void binarizeGPU(bool *result, T *image, long width, long height, T t
 
 //	TODO make the threshold relative to the value range within the image, instead of an absolute value
 template<typename T>
-bool * binarize(T *image, long width, long height, T threshold) {
+bool * binarize(T *image, long width, long height, T relativeThreshold) {
+	thrust::device_ptr<T> imageThrustPointer(image);
+	T min = (thrust::min_element(imageThrustPointer, imageThrustPointer + (width * height)))[0];
+	T max = (thrust::max_element(imageThrustPointer, imageThrustPointer + (width * height)))[0];
+	T absoluteThreshold = (max - min) * relativeThreshold + min;
+
 	bool *binaryImage;
 	assertCheck(cudaMalloc(&binaryImage, width * height * sizeof(bool)));
 
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
-	binarizeGPU<T> <<<blocks, threads>>>(binaryImage, image, width, height, threshold);
+	binarizeGPU<T> <<<blocks, threads>>>(binaryImage, image, width, height, absoluteThreshold);
 	assertCheck(cudaGetLastError());
 
 	return binaryImage;
 }
 
 template<typename imgT>
-bool * cudaHough::preprocess(CImg<imgT> &image, imgT binarizationThreshold) {
+bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold) {
 	imgT *grayValueImage = cImgToGPU<imgT>(image);
 	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
-	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), binarizationThreshold);
+	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), relativeThreshold);
 
 	assertCheck(cudaFree(grayValueImage));
 	assertCheck(cudaFree(gradientStrengthImage));
