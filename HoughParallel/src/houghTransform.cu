@@ -130,7 +130,6 @@ __global__ void binarizeGPU(bool *result, T *image, long width, long height, T t
 	}
 }
 
-//	TODO make the threshold relative to the value range within the image, instead of an absolute value
 template<typename T>
 bool * binarize(T *image, long width, long height, T relativeThreshold) {
 	thrust::device_ptr<T> imageThrustPointer(image);

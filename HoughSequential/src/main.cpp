@@ -8,10 +8,8 @@
 
 using namespace cimg_library;
 
-
 // main method
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	// define minimal and maximal color value for the saved images
 	unsigned char minColor = 0;
 	unsigned char maxColor = 255;
@@ -24,10 +22,8 @@ int main(int argc, char **argv)
 	std::string filename;
 	std::string resultPath = "./";
 	char option;
-	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1)
-	{
-		switch (option)
-		{
+	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1) {
+		switch (option) {
 			case 't':
 				thresholdDivisor = std::atof(optarg);
 				break;
@@ -41,10 +37,9 @@ int main(int argc, char **argv)
 				resultPath = optarg;
 				break;
 			case '?':
-				if(optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
+				if (optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
 					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
-				}
-				else {
+				} else {
 					std::cerr << "Unknown option " << optopt << std::endl;
 				}
 				exit(EXIT_FAILURE);
@@ -53,76 +48,61 @@ int main(int argc, char **argv)
 				exit(EXIT_FAILURE);
 		}
 	}
-	if(optind >= argc)
-	{
+	if (optind >= argc) {
 		std::cerr << "Path to image required" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 	filename = argv[optind];
 
-	// load image from filename
-	CImg<double> img(filename.c_str());
-
-	// convert it to a grayvalue image
-	CImg<double> grayImg = RGBToGrayValueImage<double>(img);
+	// load image from file and convert to gray value
+	CImg<double> inputImage(filename.c_str());
+	inputImage = RGBToGrayValueImage<double>(inputImage);
+	hough::HoughParameterSet<double> p(inputImage.width(), inputImage.height());
 
 	// compute the binary image in the preprocess()-method and measure time
-	clock_t preprocessStart = std::clock();
-	CImg<bool> binaryImg = hough::preprocess<double>(grayImg, thresholdDivisor);
-	clock_t preprocessEnd = std::clock();
-
-	// print how much time it took to compute the binary image
-	std::cout << "Preprocess time: " << double(preprocessEnd - preprocessStart) / CLOCKS_PER_SEC << std::endl;
-
-	// display the binary image
-	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
-	binaryImgDisp.move(50, 50);
-
-	// save binary image as PNG-file
-	(CImg<unsigned char> (binaryImg)).normalize(minColor, maxColor).save_png(std::string("binaryimg.png").insert(0, resultPath).c_str(), 1);
-
-	hough::HoughParameterSet<double> p(binaryImg.width(), binaryImg.height());
+	std::cout << "Preprocessing..." << std::flush;
+	clock_t begin = std::clock();
+	CImg<bool> binaryImg = hough::preprocess<double>(inputImage, thresholdDivisor);
+	clock_t end = std::clock();
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	// compute the accumulator array and measure time
-	clock_t houghStart = std::clock();
+	std::cout << "Calculating accumulator array..." << std::flush;
+	begin = std::clock();
 	CImg<long> accumulatorArray = hough::transform<long, double>(binaryImg, p);
-	clock_t houghEnd = std::clock();
-
-	// print how much time it took to compute the accumulator array
-	std::cout << "Hough time: " << double(houghEnd - houghStart) / CLOCKS_PER_SEC << std::endl;
-
-	// save accumulator array as PNG-file
-	(CImg<unsigned char> (accumulatorArray)).normalize(minColor, maxColor).save_png(std::string("accumulatorarray.png").insert(0, resultPath).c_str(), 1);
-
-	// display the accumulator array
-	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
-	accDisplay.move(400,50);
+	end = std::clock();
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	// compute the k best lines and measure time
-	clock_t bestStart = std::clock();
-	std::vector< std::pair<double, double> > best = hough::extractStrongestLines<long, double>(accumulatorArray, p,
+	std::cout << "Extracting strongest lines..." << std::flush;
+	begin = std::clock();
+	std::vector<std::pair<double, double> > best = hough::extractStrongestLines<long, double>(accumulatorArray, p,
 			linesToExtract, excludeRadius);
-	clock_t bestEnd = std::clock();
-
-	// print how much time it took to compute the k best lines
-	std::cout << "Best lines time: " << double(bestEnd - bestStart) / CLOCKS_PER_SEC << std::endl;
+	end = std::clock();
+	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	// draw the lines and measure time
 	CImg<unsigned char> bestLinesImg = binaryToColorImg<unsigned char>(binaryImg);
-	unsigned char redColor[] = {255, 0, 0};
-	clock_t drawStart = std::clock();
+	unsigned char redColor[] = { 255, 0, 0 };
 	drawLines<unsigned char>(bestLinesImg, best, redColor);
-	clock_t drawEnd = std::clock();
 
-	// print how long it took to draw the k best lines
-	std::cout << "Draw time: " << double(drawEnd - drawStart) / CLOCKS_PER_SEC << std::endl;
-
-	// save best line image as PNG-file
-	(CImg<unsigned char> (bestLinesImg)).normalize(minColor, maxColor).save_png(std::string("bestlines.png").insert(0, resultPath).c_str(), 3);
-
-	// display the best lines image
+	// display binary image, accumulator array, and strongest lines
+	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
+	binaryImgDisp.move(50, 50);
+	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
+	accDisplay.move(400, 50);
 	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
 	bestLinesDisp.move(0, 0);
+
+
+	// save binary image, accumulator array and strongest lines image as PNG-file
+	(CImg<unsigned char>(binaryImg)).normalize(minColor, maxColor).save_png(
+			std::string("binaryimg.png").insert(0, resultPath).c_str(), 1);
+	(CImg<unsigned char>(accumulatorArray)).normalize(minColor, maxColor).save_png(
+			std::string("accumulatorarray.png").insert(0, resultPath).c_str(), 1);
+	(CImg<unsigned char>(bestLinesImg)).normalize(minColor, maxColor).save_png(
+			std::string("bestlines.png").insert(0, resultPath).c_str(), 3);
+
 
 	// Wait until display is closed
 	while (!binaryImgDisp._is_closed)
