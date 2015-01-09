@@ -6,6 +6,12 @@ Transform by using the *CUDA*-environment with *C++*. To handle load/store and
 displaying of images, the *CImg* library is used. Currently, a version for detecting
 straight lines is implemented as both a sequential and a parallel version.
 
+The transform takes a parameter of type HoughParameterSet. This object contains the
+dimensions of Theta (minTheta, maxTheta), dimensions of R (minR, maxR), and the
+precision with which these dimensions are handled (stepsPerRadian, stepsPerPixel).
+Those variables are inizialized with reasonable values calculated from image dimensions,
+though you might want to modify the step sizes.
+
 Technical details
 ------------------------
 Images on the GPU are represented as flat (1D) arrays in **row-major format**.
@@ -21,7 +27,7 @@ R-dimension, respectively (where Theta is the angle of the perpendicular through
 origin and R is the distance to the origin)
 The dimensions of the accumulator array are calculated according to:
 
->dimTheta = (maxTheta - minTheta) * stepsPerRadian + 1
+>dimTheta = (maxTheta - minTheta) * stepsPerRadian + 1  
 >dimR = (maxR - minR) * stepsPerPixel + 1;
 
 where *stepsPerRadian* and *stepsPerPixel* determine how well the transformation will
