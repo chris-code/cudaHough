@@ -169,7 +169,7 @@ __global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long h
 //	TODO calculate x and y by directly taking into account border exclude, instead of checking it afterwards
 	if (x >= borderExclude && y >= borderExclude && x < width - borderExclude && y < height - borderExclude) {
 		if (binaryImage[y * width + x] == 1) {
-			for (Tparam theta = minTheta; theta <= maxTheta; theta += thetaStepSize) {
+			for (Tparam theta = minTheta; theta < maxTheta; theta += thetaStepSize) {
 				Tparam r = x * cos(theta) + y * sin(theta);
 
 				long thetaIdx = long((theta - minTheta) * stepsPerRadian);
@@ -260,7 +260,7 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *
 	thrust::copy(sortedIndices.begin(), sortedIndices.begin() + linesToExtract, cpuSortedIndices.begin());
 
 	std::vector<std::pair<paramT, paramT> > bestLines;
-	for (int i = 0; i < linesToExtract; i++) {
+	for (long i = 0; i < linesToExtract; i++) {
 		long x = cpuSortedIndices[i] % hps.getDimTheta();
 		long y = cpuSortedIndices[i] / hps.getDimTheta();
 

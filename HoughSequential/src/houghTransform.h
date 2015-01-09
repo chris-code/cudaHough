@@ -5,12 +5,11 @@
 
 using namespace cimg_library;
 
-
 namespace hough {
 	template<typename paramT>
 	class HoughParameterSet {
 		public:
-			HoughParameterSet(int width, int height) {
+			HoughParameterSet(long width, long height) {
 				this->minTheta = 0;
 				this->maxTheta = cimg_library::cimg::PI;
 				this->stepsPerRadian = 57.295 * 2;
@@ -48,5 +47,5 @@ namespace hough {
 
 	template<typename accuT, typename paramT>
 	std::vector< std::pair<paramT, paramT> > extractStrongestLines(CImg<accuT>& accArray,
-			hough::HoughParameterSet<paramT>& p, int k, int excludeRadius);
+			hough::HoughParameterSet<paramT>& p, long k, long excludeRadius);
 }

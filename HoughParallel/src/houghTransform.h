@@ -14,7 +14,7 @@ namespace cudaHough {
 	template<typename paramT>
 	class HoughParameterSet {
 		public:
-			HoughParameterSet(int width, int height) {
+			HoughParameterSet(long width, long height) {
 				this->minTheta = 0;
 				this->maxTheta = cimg_library::cimg::PI;
 				this->stepsPerRadian = 57.295 * 2;

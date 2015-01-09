@@ -16,8 +16,8 @@ int main(int argc, char **argv) {
 
 	// define some other variables
 	double thresholdDivisor = 4;
-	int excludeRadius = 20;
-	int linesToExtract = 12;
+	long excludeRadius = 20;
+	long linesToExtract = 12;
 
 	std::string filename;
 	std::string resultPath = "./";
@@ -28,10 +28,10 @@ int main(int argc, char **argv) {
 				thresholdDivisor = std::atof(optarg);
 				break;
 			case 'e':
-				excludeRadius = std::atoi(optarg);
+				excludeRadius = std::atol(optarg);
 				break;
 			case 'l':
-				linesToExtract = std::atoi(optarg);
+				linesToExtract = std::atol(optarg);
 				break;
 			case 'o':
 				resultPath = optarg;
@@ -87,12 +87,12 @@ int main(int argc, char **argv) {
 	drawLines<unsigned char>(bestLinesImg, best, redColor);
 
 	// display binary image, accumulator array, and strongest lines
-	CImgDisplay binaryImgDisp(binaryImg, "Binary Image");
-	binaryImgDisp.move(50, 50);
+	CImgDisplay binaryDisplay(binaryImg, "Binary Image");
+	binaryDisplay.move(50, 50);
 	CImgDisplay accDisplay(accumulatorArray, "Accumulator Array", 1);
 	accDisplay.move(400, 50);
-	CImgDisplay bestLinesDisp(bestLinesImg, "Best lines", 1);
-	bestLinesDisp.move(0, 0);
+	CImgDisplay bestLinesDisplay(bestLinesImg, "Best lines", 1);
+	bestLinesDisplay.move(0, 0);
 
 
 	// save binary image, accumulator array and strongest lines image as PNG-file
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
 
 
 	// Wait until display is closed
-	while (!binaryImgDisp._is_closed)
-		binaryImgDisp.wait();
+	while (!binaryDisplay._is_closed)
+		binaryDisplay.wait();
 }
 

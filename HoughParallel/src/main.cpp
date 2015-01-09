@@ -28,11 +28,11 @@ CImg<unsigned char> binaryToColorImg(const CImg<bool> &binaryImg) {
 	CImg<unsigned char> colorImg(binaryImg.width(), binaryImg.height(), 1, 3, 0);
 
 	// iterate over the binary image
-	for (int x = 0; x < binaryImg.width(); ++x) {
-		for (int y = 0; y < binaryImg.height(); ++y) {
+	for (long x = 0; x < binaryImg.width(); ++x) {
+		for (long y = 0; y < binaryImg.height(); ++y) {
 			// if there is a 1 in the binary image, set all three RGB-values to 255
 			if (binaryImg(x, y, 0, 0)) {
-				for (int k = 0; k < 3; ++k)
+				for (long k = 0; k < 3; ++k)
 					colorImg(x, y, 0, k) = 255;
 			}
 		}
@@ -48,9 +48,9 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 	if ((theta >= cimg::PI / 4 && theta <= cimg::PI * 3 / 4)
 			|| (theta >= cimg::PI * 5 / 4 && theta <= cimg::PI * 7 / 4)) {
 		// iterate horizontally over the image
-		for (int x = 0; x < image.width(); ++x) {
+		for (long x = 0; x < image.width(); ++x) {
 			// calculate y from r, Theta and x
-			int y = round((r - x * cos(theta)) / sin(theta));
+			long y = round((r - x * cos(theta)) / sin(theta));
 
 			// if y is within the range of the image, color the pixel (x,y)
 			if (y >= 0 && y < image.height()) {
@@ -63,9 +63,9 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 	// it's a rather vertical line (sin(Theta) could be 0)
 	else {
 		// iterate vertically over the image
-		for (int y = 0; y < image.height(); ++y) {
+		for (long y = 0; y < image.height(); ++y) {
 			// calculate x from r, Theta and y
-			int x = round((r - y * sin(theta)) / cos(theta));
+			long x = round((r - y * sin(theta)) / cos(theta));
 
 			// if x is within the range of the image, color the pixel(x, y)
 			if (x >= 0 && x < image.width()) {
@@ -80,7 +80,7 @@ void drawLine(CImg<unsigned char> &image, const double theta, const double r, do
 // this method receives some lines in Theta-r-form and draws them in the passed image
 void drawLines(CImg<unsigned char> &image, std::vector<std::pair<double, double> > &lines, double *color) {
 	// iterate over lines
-	for (int i = 0; i < int(lines.size()); i++) {
+	for (long i = 0; i < long(lines.size()); i++) {
 		// draw line
 		drawLine(image, lines[i].first, lines[i].second, color);
 	}
@@ -157,7 +157,6 @@ int main(int argc, char **argv) {
 	CImg<unsigned char> cpuBestLinesImg = binaryToColorImg(cpuBinaryImage);
 	drawLines(cpuBestLinesImg, strongestLines, redColor);
 
-	CImgDisplay inputDisplay(inputImage, "Input", 1);
 	CImgDisplay binaryDisplay(cpuBinaryImage, "Binary", 1);
 	CImgDisplay accumulatorDisplay(cpuAccumulatorArray, "Accumulator", 1);
 	CImgDisplay strongestLinesDisplay(cpuBestLinesImg, "Best Lines", 1);
@@ -169,8 +168,8 @@ int main(int argc, char **argv) {
 	(CImg<unsigned char>(cpuBestLinesImg)).normalize(0, 255).save_png(
 			std::string("bestLines.png").insert(0, resultPath).c_str(), 3);
 
-	while (!inputDisplay.is_closed())
-		inputDisplay.wait();
+	while (!binaryDisplay.is_closed())
+		binaryDisplay.wait();
 
 //	FIXME free binaryImage, accumulatorArray
 	return EXIT_SUCCESS;
