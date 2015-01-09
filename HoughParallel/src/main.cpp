@@ -11,7 +11,7 @@ using namespace cimg_library;
 
 template<typename imgT, typename accuT, typename paramT>
 void execute(std::string &filename, std::string &resultPath, double threshold, long excludeRadius,
-		long linesToExtract) {
+	long linesToExtract) {
 	CImg<double> inputImage(filename.c_str()); // Load image
 	inputImage = RGBToGrayValueImage<double>(inputImage);
 	cudaHough::HoughParameterSet<double> hps(inputImage.width(), inputImage.height());
@@ -25,21 +25,21 @@ void execute(std::string &filename, std::string &resultPath, double threshold, l
 	std::cout << "Calculating accumulator array..." << std::flush;
 	begin = clock();
 	long *accumulatorArray = cudaHough::transform<long, double>(binaryImage, inputImage.width(), inputImage.height(),
-			hps); // Transform to Hough-space
+		hps); // Transform to Hough-space
 	end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	std::cout << "Extracting strongest lines..." << std::flush;
 	begin = clock();
 	std::vector<std::pair<double, double> > strongestLines = cudaHough::extractStrongestLines<long, double>(
-			accumulatorArray, linesToExtract, excludeRadius, hps);
+		accumulatorArray, linesToExtract, excludeRadius, hps);
 	end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
 	CImg<long> cpuAccumulatorArray = gpuToCImg<long>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
 
-	unsigned char redColor[] = { 255, 0, 0 };
+	unsigned char redColor[] = {255, 0, 0};
 	CImg<unsigned char> cpuBestLinesImg = binaryToColorImg<unsigned char>(cpuBinaryImage);
 	drawLines<unsigned char>(cpuBestLinesImg, strongestLines, redColor);
 
@@ -47,11 +47,11 @@ void execute(std::string &filename, std::string &resultPath, double threshold, l
 	CImgDisplay strongestLinesDisplay(cpuBestLinesImg, "Best Lines", 1);
 
 	(CImg<unsigned char>(cpuBinaryImage)).normalize(0, 255).save_png(
-			std::string("binaryImage.png").insert(0, resultPath).c_str(), 1);
+		std::string("binaryImage.png").insert(0, resultPath).c_str(), 1);
 	(CImg<unsigned char>(cpuAccumulatorArray)).normalize(0, 255).save_png(
-			std::string("accumulatorArray.png").insert(0, resultPath).c_str(), 1);
+		std::string("accumulatorArray.png").insert(0, resultPath).c_str(), 1);
 	(CImg<unsigned char>(cpuBestLinesImg)).normalize(0, 255).save_png(
-			std::string("bestLines.png").insert(0, resultPath).c_str(), 3);
+		std::string("bestLines.png").insert(0, resultPath).c_str(), 3);
 
 	while (!binaryDisplay.is_closed())
 		binaryDisplay.wait();
@@ -64,8 +64,14 @@ int main(int argc, char **argv) {
 	long excludeRadius = 20;
 	long linesToExtract = 16;
 
+	struct option options[] = {
+		{"threshold", required_argument, NULL, 't'},
+		{"exclude-radius", required_argument, NULL, 'e'},
+		{"lines", required_argument, NULL, 'l'},
+		{"output-path", required_argument, NULL, 'o'},
+		{0, 0, NULL, 0}};
 	char option;
-	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1) {
+	while ((option = getopt_long(argc, argv, "t:e:l:o:", options, NULL)) != -1) {
 		switch (option) {
 			case 't':
 				threshold = std::atof(optarg);

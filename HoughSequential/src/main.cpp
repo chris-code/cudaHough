@@ -2,7 +2,7 @@
 #include <ctime>
 #include <string>
 #include <iostream>
-#include <unistd.h>
+#include <getopt.h>
 #include <CImg.h>
 #include "houghTransform.h"
 #include "houghHelpers.hpp"
@@ -11,7 +11,7 @@ using namespace cimg_library;
 
 template<typename imgT, typename accuT, typename paramT>
 void execute(std::string &filename, std::string &resultPath, double threshold, long excludeRadius,
-		long linesToExtract) {
+	long linesToExtract) {
 	// load image from file and convert to gray value
 	CImg<imgT> inputImage(filename.c_str());
 	inputImage = RGBToGrayValueImage<imgT>(inputImage);
@@ -35,13 +35,13 @@ void execute(std::string &filename, std::string &resultPath, double threshold, l
 	std::cout << "Extracting strongest lines..." << std::flush;
 	begin = std::clock();
 	std::vector<std::pair<paramT, paramT> > best = hough::extractStrongestLines<accuT, paramT>(accumulatorArray, p,
-			linesToExtract, excludeRadius);
+		linesToExtract, excludeRadius);
 	end = std::clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	// draw the lines and measure time
 	CImg<unsigned char> bestLinesImg = binaryToColorImg<unsigned char>(binaryImg);
-	unsigned char redColor[] = { 255, 0, 0 };
+	unsigned char redColor[] = {255, 0, 0};
 	drawLines<unsigned char>(bestLinesImg, best, redColor);
 
 	// display binary image and strongest lines
@@ -52,11 +52,11 @@ void execute(std::string &filename, std::string &resultPath, double threshold, l
 	unsigned char minColor = 0;
 	unsigned char maxColor = 255;
 	(CImg<unsigned char>(binaryImg)).normalize(minColor, maxColor).save_png(
-			std::string("binaryimg.png").insert(0, resultPath).c_str(), 1);
+		std::string("binaryimg.png").insert(0, resultPath).c_str(), 1);
 	(CImg<unsigned char>(accumulatorArray)).normalize(minColor, maxColor).save_png(
-			std::string("accumulatorarray.png").insert(0, resultPath).c_str(), 1);
+		std::string("accumulatorarray.png").insert(0, resultPath).c_str(), 1);
 	(CImg<unsigned char>(bestLinesImg)).normalize(minColor, maxColor).save_png(
-			std::string("bestlines.png").insert(0, resultPath).c_str(), 3);
+		std::string("bestlines.png").insert(0, resultPath).c_str(), 3);
 
 	// Wait until display is closed
 	while (!binaryDisplay._is_closed)
@@ -70,8 +70,15 @@ int main(int argc, char **argv) {
 	long excludeRadius = 20;
 	long linesToExtract = 16;
 
+	struct option options[] = {
+		{"threshold", required_argument, NULL, 't'},
+		{"exclude-radius", required_argument, NULL, 'e'},
+		{"lines", required_argument, NULL, 'l'},
+		{"output-path", required_argument, NULL, 'o'},
+		{0, 0, NULL, 0}
+	};
 	char option;
-	while ((option = getopt(argc, argv, "t:e:l:o:")) != -1) {
+	while ((option = getopt_long(argc, argv, "t:e:l:o:", options, NULL)) != -1) {
 		switch (option) {
 			case 't':
 				threshold = std::atof(optarg);
