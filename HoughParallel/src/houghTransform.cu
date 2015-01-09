@@ -49,7 +49,7 @@ CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory) {
 
 template<typename T>
 __global__ void convolve(T *result, T *image, long imgWidth, long imgHeight, T *filter, long filWidth, long filHeight,
-		long filAnchorX, long filAnchorY) {
+	long filAnchorX, long filAnchorY) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -69,6 +69,65 @@ __global__ void convolve(T *result, T *image, long imgWidth, long imgHeight, T *
 	}
 }
 
+//	Note that this kernel takes sigma^2 as an argument.
+template<typename imgT>
+__global__ void generateGauss(imgT *result, long width, long height, imgT sigma2, imgT normalizationTerm) {
+	long x = blockIdx.x * blockDim.x + threadIdx.x;
+	long y = blockIdx.y * blockDim.y + threadIdx.y;
+	long index = y * width + x;
+	if (index < width * height) {
+		imgT coordX = x - width / 2.0;
+		imgT coordY = y - height / 2.0;
+
+		imgT value = pow(coordX, imgT(2.0)) + pow(coordY, imgT(2.0));
+		value /= 2 * sigma2;
+		value = exp(-value);
+		result[index] = value * normalizationTerm;
+	}
+}
+
+template<typename imgT>
+imgT * gaussBlurr(imgT *image, long width, long height, imgT sigma) {
+	dim3 threads(16, 16);
+	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
+
+//	Generate gaussian
+	long filterWidth = 2 * sigma + 1; // 2-sigma rule, catch 95% of all values, but make it odd
+	long filterHeight = 2 * sigma + 1;
+	imgT *gauss;
+//	TODO we get about 95% of all values. The gauss filter would normally sum to 1 since the gauss curve integrates to
+//	1. But we lose 5% of it, so it doesn't exactly sum to one. Modify the normalization term to compensate for this.
+	imgT normalizationTerm = 1.0 / (2.0 * M_PI * pow(sigma, 2.0));
+	assertCheck(cudaMalloc(&gauss, filterWidth * filterHeight * sizeof(imgT)));
+	generateGauss<imgT> <<<blocks, threads>>>(gauss, filterWidth, filterHeight, imgT(pow(sigma, 2.0)),
+		imgT(normalizationTerm));
+	assertCheck(cudaGetLastError());
+
+//	Blurr the image with it
+	imgT *result;
+	assertCheck(cudaMalloc(&result, width * height * sizeof(imgT)));
+	convolve<imgT> <<<blocks, threads>>>(result, image, width, height, gauss, filterWidth, filterHeight,
+		filterWidth / 2, filterHeight / 2);
+	assertCheck(cudaGetLastError());
+
+	CImg<imgT> cpuResult = gpuToCImg<imgT>(result, width, height, false);
+	CImg<imgT> cpuGauss = gpuToCImg<imgT>(gauss, filterWidth, filterHeight, false);
+	std::cout << std::endl;
+	for (long y = 0; y < cpuGauss.height(); ++y) {
+		for (long x = 0; x < cpuGauss.width(); ++x) {
+			std::cout << cpuGauss(x, y, 0, 0) << " ";
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+	CImgDisplay resultDisplay(cpuResult, "Blurred image", 1);
+	while (!resultDisplay.is_closed())
+		resultDisplay.wait();
+
+	assertCheck(cudaFree(gauss));
+	return result;
+}
+
 template<typename T>
 __global__ void computeGradientStrengthGPU(T *gradientStrength, T *gradientX, T *gradientY, long width, long height) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -82,8 +141,8 @@ __global__ void computeGradientStrengthGPU(T *gradientStrength, T *gradientX, T 
 
 template<typename T>
 T * computeGradientStrength(T *grayValueImage, long width, long height) {
-	T cpuSobelX[] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
-	T cpuSobelY[] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
+	T cpuSobelX[] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	T cpuSobelY[] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
 	T *sobelX;
 	T *sobelY;
 	assertCheck(cudaMalloc(&sobelX, 9 * sizeof(T)));
@@ -149,12 +208,14 @@ bool * binarize(T *image, long width, long height, T relativeThreshold) {
 }
 
 template<typename imgT>
-bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold) {
+bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold, imgT sigma) {
 	imgT *grayValueImage = cImgToGPU<imgT>(image);
+	imgT *blurredImage = gaussBlurr<imgT>(grayValueImage, image.width(), image.height(), sigma); // TODO
 	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
 	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), relativeThreshold);
 
 	assertCheck(cudaFree(grayValueImage));
+	assertCheck(cudaFree(blurredImage));
 	assertCheck(cudaFree(gradientStrengthImage));
 
 	return binaryImage;
@@ -162,8 +223,8 @@ bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold) {
 
 template<typename accuT, typename Tparam>
 __global__ void computeAccumulatorArrayGPU(bool *binaryImage, long width, long height, long borderExclude,
-		accuT *accumulatorArray, Tparam minTheta, Tparam maxTheta, Tparam thetaStepSize, Tparam stepsPerRadian,
-		Tparam minR, Tparam stepsPerPixel, long dimTheta) {
+	accuT *accumulatorArray, Tparam minTheta, Tparam maxTheta, Tparam thetaStepSize, Tparam stepsPerRadian,
+	Tparam minR, Tparam stepsPerPixel, long dimTheta) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 //	TODO calculate x and y by directly taking into account border exclude, instead of checking it afterwards
@@ -193,8 +254,8 @@ accuT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPa
 	dim3 threads(16, 16);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	computeAccumulatorArrayGPU<accuT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
-			accumulatorArray, hps.minTheta, hps.maxTheta, hps.getThetaStepSize(), hps.stepsPerRadian, hps.minR,
-			hps.stepsPerPixel, dimTheta);
+		accumulatorArray, hps.minTheta, hps.maxTheta, hps.getThetaStepSize(), hps.stepsPerRadian, hps.minR,
+		hps.stepsPerPixel, dimTheta);
 	assertCheck(cudaGetLastError());
 
 	return accumulatorArray;
@@ -202,7 +263,7 @@ accuT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPa
 
 template<typename T>
 __global__ void isolateLocalMaximaGPU(T *accumulatorArray, T *localMaxima, long width, long height,
-		long excludeRadius) {
+	long excludeRadius) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -253,7 +314,7 @@ thrust::device_vector<long> getSortedIndices(T *maxima, long width, long height)
 
 template<typename accuT, typename paramT>
 std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
-		long excludeRadius, HoughParameterSet<paramT> &hps) {
+	long excludeRadius, HoughParameterSet<paramT> &hps) {
 	accuT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
 	thrust::device_vector<long> sortedIndices = getSortedIndices<accuT>(localMaxima, hps.getDimTheta(), hps.getDimR());
 	thrust::host_vector<long> cpuSortedIndices(linesToExtract);
@@ -276,11 +337,11 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *
 
 template<typename imgT, typename accuT, typename paramT>
 std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(CImg<imgT> &image,
-		HoughParameterSet<paramT> &hps, imgT binarizationThreshold, long linesToExtract, long excludeRadius) {
-	bool *binaryImage = preprocess<imgT>(image, binarizationThreshold);
+	HoughParameterSet<paramT> &hps, imgT binarizationThreshold, imgT sigma, long linesToExtract, long excludeRadius) {
+	bool *binaryImage = preprocess<imgT>(image, binarizationThreshold, sigma);
 	accuT *accumulatorArray = transform<accuT, paramT>(binaryImage, image.width(), image.height(), hps);
 	std::vector<std::pair<paramT, paramT> > strongestLines = extractStrongestLines<accuT, paramT>(accumulatorArray,
-			linesToExtract, excludeRadius, hps);
+		linesToExtract, excludeRadius, hps);
 
 	assertCheck(cudaFree(binaryImage));
 	assertCheck(cudaFree(accumulatorArray));
@@ -293,17 +354,17 @@ template CImg<bool> gpuToCImg(bool *image, long width, long height, bool freeMem
 template CImg<long> gpuToCImg(long *image, long width, long height, bool freeMemory);
 template CImg<float> gpuToCImg(float *image, long width, long height, bool freeMemory);
 template CImg<double> gpuToCImg(double *image, long width, long height, bool freeMemory);
-template bool * cudaHough::preprocess<float>(CImg<float> &image, float binarizationThreshold);
-template bool * cudaHough::preprocess<double>(CImg<double> &image, double binarizationThreshold);
+template bool * cudaHough::preprocess<float>(CImg<float> &image, float threshold, float sigma);
+template bool * cudaHough::preprocess<double>(CImg<double> &image, double threshold, double sigma);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
 template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
 template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines(long *accumulatorArray,
-		long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
+	long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
 template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines(long *accumulatorArray,
-		long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);
+	long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);
 template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines<float, long, float>(
-		CImg<float> &image, HoughParameterSet<float> &hps, float binarizationThreshold, long linesToExtract,
-		long excludeRadius);
+	CImg<float> &image, HoughParameterSet<float> &hps, float threshold, float sigma, long linesToExtract,
+	long excludeRadius);
 template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines<double, long, double>(
-		CImg<double> &image, HoughParameterSet<double> &hps, double binarizationThreshold, long linesToExtract,
-		long excludeRadius);
+	CImg<double> &image, HoughParameterSet<double> &hps, double threshold, double sigma, long linesToExtract,
+	long excludeRadius);

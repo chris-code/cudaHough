@@ -2,42 +2,42 @@
 #include <ctime>
 #include <string>
 #include <iostream>
-#include <unistd.h>
+#include <getopt.h>
 #include <CImg.h>
 #include "houghTransform.h"
 #include "houghHelpers.hpp"
 
 using namespace cimg_library;
 
-template<typename imgT, typename accuT, typename paramT>
-void execute(std::string &filename, std::string &resultPath, double threshold, long excludeRadius,
+template<typename imgT, typename accuT, typename paramT> //TODO use template parameters
+void execute(std::string &filename, std::string &resultPath, double threshold, double sigma, long excludeRadius,
 	long linesToExtract) {
-	CImg<double> inputImage(filename.c_str()); // Load image
-	inputImage = RGBToGrayValueImage<double>(inputImage);
-	cudaHough::HoughParameterSet<double> hps(inputImage.width(), inputImage.height());
+	CImg<imgT> inputImage(filename.c_str()); // Load image
+	inputImage = RGBToGrayValueImage<imgT>(inputImage);
+	cudaHough::HoughParameterSet<paramT> hps(inputImage.width(), inputImage.height());
 
 	std::cout << "Preprocessing..." << std::flush;
 	clock_t begin = clock();
-	bool *binaryImage = cudaHough::preprocess<double>(inputImage, threshold); // Transform to a binary image
+	bool *binaryImage = cudaHough::preprocess<imgT>(inputImage, threshold, sigma); // Transform to a binary image
 	clock_t end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	std::cout << "Calculating accumulator array..." << std::flush;
 	begin = clock();
-	long *accumulatorArray = cudaHough::transform<long, double>(binaryImage, inputImage.width(), inputImage.height(),
+	accuT *accumulatorArray = cudaHough::transform<accuT, paramT>(binaryImage, inputImage.width(), inputImage.height(),
 		hps); // Transform to Hough-space
 	end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	std::cout << "Extracting strongest lines..." << std::flush;
 	begin = clock();
-	std::vector<std::pair<double, double> > strongestLines = cudaHough::extractStrongestLines<long, double>(
+	std::vector<std::pair<paramT, paramT> > strongestLines = cudaHough::extractStrongestLines<accuT, paramT>(
 		accumulatorArray, linesToExtract, excludeRadius, hps);
 	end = clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
 	CImg<bool> cpuBinaryImage = gpuToCImg<bool>(binaryImage, inputImage.width(), inputImage.height());
-	CImg<long> cpuAccumulatorArray = gpuToCImg<long>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
+	CImg<accuT> cpuAccumulatorArray = gpuToCImg<accuT>(accumulatorArray, hps.getDimTheta(), hps.getDimR());
 
 	unsigned char redColor[] = {255, 0, 0};
 	CImg<unsigned char> cpuBestLinesImg = binaryToColorImg<unsigned char>(cpuBinaryImage);
@@ -103,6 +103,8 @@ int main(int argc, char **argv) {
 	}
 	filename = argv[optind];
 
-	execute<double, long, double>(filename, resultPath, threshold, excludeRadius, linesToExtract);
+	double sigma = 2.0;
+
+	execute<double, long, double>(filename, resultPath, threshold, sigma, excludeRadius, linesToExtract);
 	return EXIT_SUCCESS;
 }

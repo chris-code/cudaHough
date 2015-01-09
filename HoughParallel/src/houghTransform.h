@@ -45,16 +45,16 @@ namespace cudaHough {
 	};
 
 	template<typename imgT>
-	bool * preprocess(CImg<imgT> &image, imgT binarizationThreshold);
+	bool * preprocess(CImg<imgT> &image, imgT binarizationThreshold, imgT sigma);
 
 	template<typename accuT, typename paramT>
 	accuT * transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps);
 
 	template<typename accuT, typename paramT>
 	std::vector<std::pair<paramT, paramT> > extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
-			long excludeRadius, HoughParameterSet<paramT> &hps);
+		long excludeRadius, HoughParameterSet<paramT> &hps);
 
 	template<typename imgT, typename accuT, typename paramT>
 	std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
-			imgT binarizationThreshold, long linesToExtract, long excludeRadius);
+		imgT binarizationThreshold, imgT sigma, long linesToExtract, long excludeRadius);
 }
