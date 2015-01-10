@@ -1,9 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
 #include <CImg.h>
-#include <cuda_runtime.h>
 
 using namespace cimg_library;
 

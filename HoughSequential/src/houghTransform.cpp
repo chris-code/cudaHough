@@ -46,8 +46,44 @@ CImg<imgT> convolve(const CImg<imgT>& image, const CImg<imgT>& filter, const lon
 
 // this method calculates the gradient strength of an gray value image given the results of the convolution with
 // SobelX and SobelY
+template<typename imgT>
+CImg<imgT> generateGauss(long width, long height, imgT sigma2, imgT normalizationTerm)
+{
+	CImg<imgT> gauss(width, height);
+	for(long y = 0; y < height; ++y)
+	{
+		imgT coordY = y - height / 2.0;
+		for(long x = 0; x < width; ++x)
+		{
+			imgT coordX = x - width / 2.0;
+
+			imgT value = pow(coordX, imgT(2.0)) + pow(coordY, imgT(2.0));
+			value /= 2 * sigma2;
+			value = exp(-value);
+			gauss(x, y) = value * normalizationTerm;
+		}
+	}
+	return gauss;
+}
+
+
+template<typename imgT>
+CImg<imgT> gaussBlurr(CImg<imgT> &image, imgT sigma)
+{
+	// 2-sigma rule, catch 95% of all values (but make it odd so that a center exists)
+	long filterWidth = 2 * sigma + 1;
+	long filterHeight = 2 * sigma + 1;
+
+	imgT normalizationTerm = 1.0 / (2.0 * M_PI * pow(sigma, 2.0));
+	CImg<imgT> gauss = generateGauss<imgT>(filterWidth, filterHeight, imgT(pow(sigma, 2.0)), normalizationTerm);
+	CImg<imgT> result = convolve(image, gauss, filterWidth / 2, filterHeight / 2);
+
+	return result;
+}
+
+
 template <typename imgT>
-CImg<imgT> calculateGradientStrength(const CImg<imgT>& image)
+CImg<imgT> computeGradientStrength(const CImg<imgT>& image)
 {
 	// create Sobel X filter
 	imgT sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
@@ -76,41 +112,9 @@ CImg<imgT> calculateGradientStrength(const CImg<imgT>& image)
 }
 
 
-// this methods normalizes an image so that the sum of its pixels equals 1
-template <typename imgT>
-CImg<imgT> normalize(const CImg<imgT>& filter)
-{
-	imgT sum = 0.;
-
-	// get the sum of all filter values
-	for (long i = 0; i < filter.width(); i++)
-	{
-		for (long j = 0; j < filter.height(); j++)
-		{
-			sum += filter(i, j, 0, 0);
-		}
-	}
-
-	// initialize the normalized filter
-	CImg<imgT> normalizedFilter(filter.width(), filter.height());
-
-	// divide every value in the filter by the sum
-	for (long i = 0; i < filter.width(); i++)
-	{
-		for (long j = 0; j < filter.height(); j++)
-		{
-			normalizedFilter(i, j, 0, 0) = filter(i, j, 0, 0) / sum;
-		}
-	}
-
-	// return the normalized filter
-	return normalizedFilter;
-}
-
-
 // returns a binary image given a grayvalue image
 template <typename imgT>
-CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT relativeThreshold)
+CImg<bool> binarize(const CImg<imgT>& image, const imgT relativeThreshold)
 {
 	// calculate absolute threshold
 	imgT imageMin = image.min();
@@ -134,113 +138,7 @@ CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT relativeThreshold
 
 
 //	Note that this kernel takes sigma^2 as an argument.
-template<typename imgT>
-CImg<imgT> generateGauss(long width, long height, imgT sigma2, imgT normalizationTerm)
-{
-	CImg<imgT> gauss(width, height);
-	for(long y = 0; y < height; ++y)
-	{
-		imgT coordY = y - height / 2.0;
-		for(long x = 0; x < width; ++x)
-		{
-			imgT coordX = x - width / 2.0;
-
-			imgT value = pow(coordX, imgT(2.0)) + pow(coordY, imgT(2.0));
-			value /= 2 * sigma2;
-			value = exp(-value);
-			gauss(x, y) = value * normalizationTerm;
-		}
-	}
-	return gauss;
-}
-
-#include <iostream> //FIXME remove this
-template<typename imgT>
-CImg<imgT> gaussBlurr(CImg<imgT> &image, imgT sigma)
-{
-	// 2-sigma rule, catch 95% of all values (but make it odd so that a center exists)
-	long filterWidth = 2 * sigma + 1;
-	long filterHeight = 2 * sigma + 1;
-
-	imgT normalizationTerm = 1.0 / (2.0 * M_PI * pow(sigma, 2.0));
-	CImg<imgT> gauss = generateGauss<imgT>(filterWidth, filterHeight, imgT(pow(sigma, 2.0)), normalizationTerm);
-	CImg<imgT> result = convolve(image, gauss, filterWidth / 2, filterHeight / 2);
-
-	return result;
-}
-
-
 // this methods converts the input image to the binary image needed by the Hough transform
-template <typename imgT>
-CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold, imgT sigma)
-{
-	CImg<imgT> blurredImg = gaussBlurr<imgT>(image, sigma);
-
-	// calculate the gradient strength
-	CImg<imgT> strengthImg = calculateGradientStrength<imgT>(blurredImg);
-
-	return makeBinaryImage<imgT>(strengthImg, relativeThreshold);
-//
-//	// create binomial filter
-//	imgT binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
-//	CImg<imgT> binomialUnnormalized(binomialArr, 3, 3);
-//	CImg<imgT> binomial = normalize<imgT>(binomialUnnormalized);
-//
-//	// smooth image
-//	strengthImg = convolve<imgT>(strengthImg, binomial, 4, 4);
-//
-//	// make and return binary image
-//	return makeBinaryImage<imgT>(strengthImg, relativeThreshold);
-}
-
-
-// this methods computes the accumulator array
-template<typename accuT, typename paramT>
-CImg<accuT> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<paramT> & p)
-{
-	// calculate the dimensions of the accumulator array by the given HoughParameterSet
-	long dimTheta = p.getDimTheta();
-	long dimR = p.getDimR();
-
-	// initialize the border exclude value, which defines how much of the border is not considered
-	long borderExclude = 5;
-
-	// calculate the thetaStepsize by inverting the steps per radian
-
-	// initialize the accumulator array as black image (initially every line has 0 votes)
-	CImg<accuT> accumulatorArray(dimTheta, dimR, 1, 1, 0);
-
-	// iterate over the image and ignore some points at the border
-	for (long x = borderExclude; x < binaryImg.width() - borderExclude; x++)
-	{
-		for (long y = borderExclude; y < binaryImg.height() - borderExclude; y++)
-		{
-			// if there is written a 1 in the binary image, increment the vote matrix at the corresponding positions
-			if (binaryImg(x, y, 0, 0))
-			{
-				// iterate over all possible values for Theta
-				for (paramT theta = p.minTheta; theta < p.maxTheta; theta += p.getThetaStepSize())
-				{
-					// calculate the r value
-					paramT r = x * cos(theta) + y * sin(theta);
-
-					// calculate the index in the accumulator array
-					long thetaIdx = long((theta - p.minTheta) * p.stepsPerRadian);
-					long rIdx = long((r - p.minR) * p.stepsPerPixel);
-
-					// increment the value at the calculated position
-					accumulatorArray(thetaIdx, rIdx, 0, 0) = accumulatorArray(thetaIdx, rIdx, 0, 0) +  1;
-				}
-			}
-		}
-	}
-
-	// return the accumulator array
-	return accumulatorArray;
-}
-
-
-// this methods finds local optima in an image
 template <typename imgT>
 std::vector< std::vector<long> > getLocalMaxima(const CImg<imgT>& image, long excludeRadius)
 {
@@ -291,7 +189,6 @@ std::vector< std::vector<long> > getLocalMaxima(const CImg<imgT>& image, long ex
 }
 
 
-// this method is a comparator for lines given by a 3-tupel r, Theta and entry of the vote matrix/accumulator array
 bool compareLines(std::vector<long> v1, std::vector<long> v2)
 {
 	// return true, if the first vector is bigger than the second one
@@ -299,6 +196,66 @@ bool compareLines(std::vector<long> v1, std::vector<long> v2)
 }
 
 
+template <typename imgT>
+CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold, imgT sigma)
+{
+	CImg<imgT> blurredImg = gaussBlurr<imgT>(image, sigma);
+
+	// calculate the gradient strength
+	CImg<imgT> strengthImg = computeGradientStrength<imgT>(blurredImg);
+
+	return binarize<imgT>(strengthImg, relativeThreshold);
+}
+
+
+// this methods computes the accumulator array
+template<typename accuT, typename paramT>
+CImg<accuT> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<paramT> & p)
+{
+	// calculate the dimensions of the accumulator array by the given HoughParameterSet
+	long dimTheta = p.getDimTheta();
+	long dimR = p.getDimR();
+
+	// initialize the border exclude value, which defines how much of the border is not considered
+	long borderExclude = 5;
+
+	// calculate the thetaStepsize by inverting the steps per radian
+
+	// initialize the accumulator array as black image (initially every line has 0 votes)
+	CImg<accuT> accumulatorArray(dimTheta, dimR, 1, 1, 0);
+
+	// iterate over the image and ignore some points at the border
+	for (long x = borderExclude; x < binaryImg.width() - borderExclude; x++)
+	{
+		for (long y = borderExclude; y < binaryImg.height() - borderExclude; y++)
+		{
+			// if there is written a 1 in the binary image, increment the vote matrix at the corresponding positions
+			if (binaryImg(x, y, 0, 0))
+			{
+				// iterate over all possible values for Theta
+				for (paramT theta = p.minTheta; theta < p.maxTheta; theta += p.getThetaStepSize())
+				{
+					// calculate the r value
+					paramT r = x * cos(theta) + y * sin(theta);
+
+					// calculate the index in the accumulator array
+					long thetaIdx = long((theta - p.minTheta) * p.stepsPerRadian);
+					long rIdx = long((r - p.minR) * p.stepsPerPixel);
+
+					// increment the value at the calculated position
+					accumulatorArray(thetaIdx, rIdx, 0, 0) = accumulatorArray(thetaIdx, rIdx, 0, 0) +  1;
+				}
+			}
+		}
+	}
+
+	// return the accumulator array
+	return accumulatorArray;
+}
+
+
+// this methods finds local optima in an image
+// this method is a comparator for lines given by a 3-tupel r, Theta and entry of the vote matrix/accumulator array
 // this methods extracts the k best lines from the accumulator array
 template<typename accuT, typename paramT>
 std::vector< std::pair<paramT, paramT> > hough::extractStrongestLines(CImg<accuT>& accArray,
