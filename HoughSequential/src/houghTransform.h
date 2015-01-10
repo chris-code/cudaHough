@@ -40,7 +40,7 @@ namespace hough {
 	};
 
 	template <typename imgT>
-	CImg<bool> preprocess(CImg<imgT>& image, imgT thresholdDivisor);
+	CImg<bool> preprocess(CImg<imgT>& image, imgT thresholdDivisor, imgT sigma);
 
 	template<typename accuT, typename paramT>
 	CImg<accuT> transform(CImg<bool>& binaryImg, hough::HoughParameterSet<paramT> & p);

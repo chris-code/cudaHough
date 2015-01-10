@@ -57,6 +57,7 @@ void execute(std::string &filename, std::string &resultPath, double threshold, d
 		binaryDisplay.wait();
 }
 
+//	Main is responsible for processing command line parameters
 int main(int argc, char **argv) {
 	std::string filename;
 	std::string resultPath = "./";
@@ -92,9 +93,9 @@ int main(int argc, char **argv) {
 				break;
 			case '?':
 				if (optopt == 't' || optopt == 's' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
-					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
+					std::cerr << "Option -%" << char(optopt) << " requires an argument." << std::endl;
 				} else {
-					std::cerr << "Unknown option " << optopt << std::endl;
+					std::cerr << "Unknown option " << char(optopt) << std::endl;
 				}
 				exit(EXIT_FAILURE);
 				break;

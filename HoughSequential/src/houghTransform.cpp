@@ -47,16 +47,29 @@ CImg<imgT> convolve(const CImg<imgT>& image, const CImg<imgT>& filter, const lon
 // this method calculates the gradient strength of an gray value image given the results of the convolution with
 // SobelX and SobelY
 template <typename imgT>
-CImg<imgT> calculateGradientStrength(const CImg<imgT>& sobelX, const CImg<imgT>& sobelY)
+CImg<imgT> calculateGradientStrength(const CImg<imgT>& image)
 {
+	// create Sobel X filter
+	imgT sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	CImg<imgT> sobelX(sobelXarr, 3, 3);
+
+	// create Sobel Y filter
+	imgT sobelYarr[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	CImg<imgT> sobelY(sobelYarr, 3, 3);
+
+	// convolve Image with both Sobel filters
+	CImg<imgT> sobelXImg = convolve<imgT>(image, sobelX, 1, 1);
+	CImg<imgT> sobelYImg = convolve<imgT>(image, sobelY, 1, 1);
+
 	// initialize the gradient strength image
-	CImg<imgT> strengthImg(sobelX.width(), sobelX.height(), 1, 1);
+	CImg<imgT> strengthImg(image.width(), image.height(), 1, 1);
 
 	// iterate over the strength image
-	for (long x = 0; x < sobelX.width(); x++)
-		for (long y = 0; y < sobelX.height(); y++)
+	for (long x = 0; x < image.width(); x++)
+		for (long y = 0; y < image.height(); y++)
 			// calculate the strength of the gradient at position (x,y) from the values in sobelX(x,y) and sobelY(x,y)
-			strengthImg(x,y,0,0) = sqrt(sobelX(x,y,0,0) * sobelX(x,y,0,0) + sobelY(x,y,0,0) * sobelY(x,y,0,0));
+			strengthImg(x,y,0,0) = sqrt(sobelXImg(x,y,0,0) * sobelXImg(x,y,0,0) + sobelYImg(x,y,0,0) *
+				sobelYImg(x,y,0,0));
 
 	// return the strength image
 	return strengthImg;
@@ -97,16 +110,19 @@ CImg<imgT> normalize(const CImg<imgT>& filter)
 
 // returns a binary image given a grayvalue image
 template <typename imgT>
-CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT threshold)
+CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT relativeThreshold)
 {
-	// initialize the binary image
-	CImg<bool> binaryImg(image.width(), image.height(), 1, 1);
+	// calculate absolute threshold
+	imgT imageMin = image.min();
+	imgT imageMax = image.max();
+	imgT absoluteThreshold = (imageMax - imageMin) * relativeThreshold + imageMin;
 
-	// iterate over the image
+	// initialize and iterate over binary image
+	CImg<bool> binaryImg(image.width(), image.height(), 1, 1);
 	for (long x = 0; x < image.width(); x++)
 		for (long y = 0; y < image.height(); y++)
 			// if the value in the original image is greater than the threshold, the pixel (x,y) becomes a 1 pixel
-			if (image(x,y,0,0) > threshold)
+			if (image(x,y,0,0) > absoluteThreshold)
 				binaryImg(x,y,0,0) = true;
 			// else it becomes a 0 pixel
 			else
@@ -117,40 +133,64 @@ CImg<bool> makeBinaryImage(const CImg<imgT>& image, const imgT threshold)
 }
 
 
+//	Note that this kernel takes sigma^2 as an argument.
+template<typename imgT>
+CImg<imgT> generateGauss(long width, long height, imgT sigma2, imgT normalizationTerm)
+{
+	CImg<imgT> gauss(width, height);
+	for(long y = 0; y < height; ++y)
+	{
+		imgT coordY = y - height / 2.0;
+		for(long x = 0; x < width; ++x)
+		{
+			imgT coordX = x - width / 2.0;
+
+			imgT value = pow(coordX, imgT(2.0)) + pow(coordY, imgT(2.0));
+			value /= 2 * sigma2;
+			value = exp(-value);
+			gauss(x, y) = value * normalizationTerm;
+		}
+	}
+	return gauss;
+}
+
+#include <iostream> //FIXME remove this
+template<typename imgT>
+CImg<imgT> gaussBlurr(CImg<imgT> &image, imgT sigma)
+{
+	// 2-sigma rule, catch 95% of all values (but make it odd so that a center exists)
+	long filterWidth = 2 * sigma + 1;
+	long filterHeight = 2 * sigma + 1;
+
+	imgT normalizationTerm = 1.0 / (2.0 * M_PI * pow(sigma, 2.0));
+	CImg<imgT> gauss = generateGauss<imgT>(filterWidth, filterHeight, imgT(pow(sigma, 2.0)), normalizationTerm);
+	CImg<imgT> result = convolve(image, gauss, filterWidth / 2, filterHeight / 2);
+
+	return result;
+}
+
+
 // this methods converts the input image to the binary image needed by the Hough transform
 template <typename imgT>
-CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold)
+CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold, imgT sigma)
 {
-	// create Sobel X filter
-	imgT sobelXarr[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
-	CImg<imgT> sobelX(sobelXarr, 3, 3);
-
-	// create Sobel Y filter
-	imgT sobelYarr[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
-	CImg<imgT> sobelY(sobelYarr, 3, 3);
-
-	// convolve Image with both Sobel filters
-	CImg<imgT> sobelXImg = convolve<imgT>(image, sobelX, 1, 1);
-	CImg<imgT> sobelYImg = convolve<imgT>(image, sobelY, 1, 1);
+	CImg<imgT> blurredImg = gaussBlurr<imgT>(image, sigma);
 
 	// calculate the gradient strength
-	CImg<imgT> strengthImg = calculateGradientStrength<imgT>(sobelXImg, sobelYImg);
+	CImg<imgT> strengthImg = calculateGradientStrength<imgT>(blurredImg);
 
-	// create binomial filter
-	imgT binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
-	CImg<imgT> binomialUnnormalized(binomialArr, 3, 3);
-	CImg<imgT> binomial = normalize<imgT>(binomialUnnormalized);
-
-	// smooth image
-	strengthImg = convolve<imgT>(strengthImg, binomial, 4, 4);
-
-	// calculate the binary image of the gradient strength image
-	imgT strengthImgMin = strengthImg.min();
-	imgT strengthImgMax = strengthImg.max();
-	imgT absoluteThreshold = (strengthImgMax - strengthImgMin) * relativeThreshold + strengthImgMin;
-
-	// make and return binary image
-	return makeBinaryImage<imgT>(strengthImg, absoluteThreshold);
+	return makeBinaryImage<imgT>(strengthImg, relativeThreshold);
+//
+//	// create binomial filter
+//	imgT binomialArr[9] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
+//	CImg<imgT> binomialUnnormalized(binomialArr, 3, 3);
+//	CImg<imgT> binomial = normalize<imgT>(binomialUnnormalized);
+//
+//	// smooth image
+//	strengthImg = convolve<imgT>(strengthImg, binomial, 4, 4);
+//
+//	// make and return binary image
+//	return makeBinaryImage<imgT>(strengthImg, relativeThreshold);
 }
 
 
@@ -288,8 +328,8 @@ std::vector< std::pair<paramT, paramT> > hough::extractStrongestLines(CImg<accuT
 }
 
 // Instantiate template methods so they are available to the compiler
-template CImg<bool> hough::preprocess(CImg<float>& image, float thresholdDivisor);
-template CImg<bool> hough::preprocess(CImg<double>& image, double thresholdDivisor);
+template CImg<bool> hough::preprocess(CImg<float>& image, float relativeThreshold, float sigma);
+template CImg<bool> hough::preprocess(CImg<double>& image, double relativeThreshold, double sigma);
 template CImg<long> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<float> & p);
 template CImg<long> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<double> & p);
 template std::vector< std::pair<float, float> > hough::extractStrongestLines(CImg<long>& accArray,

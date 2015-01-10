@@ -76,7 +76,7 @@ __global__ void generateGauss(imgT *result, long width, long height, imgT sigma2
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
 	long index = y * width + x;
-	if (index < width * height) {
+	if (x < width && y < height) {
 		imgT coordX = x - width / 2.0;
 		imgT coordY = y - height / 2.0;
 
@@ -93,12 +93,12 @@ imgT * gaussBlurr(imgT *image, long width, long height, imgT sigma) {
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 
 //	Generate gaussian
-	long filterWidth = 2 * sigma + 1; // 2-sigma rule, catch 95% of all values, but make it odd
-	long filterHeight = 2 * sigma + 1;
-	imgT *gauss;
+	long filterWidth = 2 * sigma + 1; // 2-sigma rule, catch 95% of all values
+	long filterHeight = 2 * sigma + 1; // (but make it odd so that a center exists)
 //	TODO we get about 95% of all values. The gauss filter would normally sum to 1 since the gauss curve integrates to
 //	1. But we lose 5% of it, so it doesn't exactly sum to one. Modify the normalization term to compensate for this.
 	imgT normalizationTerm = 1.0 / (2.0 * M_PI * pow(sigma, 2.0));
+	imgT *gauss;
 	assertCheck(cudaMalloc(&gauss, filterWidth * filterHeight * sizeof(imgT)));
 	generateGauss<imgT> <<<blocks, threads>>>(gauss, filterWidth, filterHeight, imgT(pow(sigma, 2.0)),
 		imgT(normalizationTerm));
@@ -110,8 +110,8 @@ imgT * gaussBlurr(imgT *image, long width, long height, imgT sigma) {
 	convolve<imgT> <<<blocks, threads>>>(result, image, width, height, gauss, filterWidth, filterHeight,
 		filterWidth / 2, filterHeight / 2);
 	assertCheck(cudaGetLastError());
-
 	assertCheck(cudaFree(gauss));
+
 	return result;
 }
 
@@ -198,7 +198,7 @@ template<typename imgT>
 bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold, imgT sigma) {
 	imgT *grayValueImage = cImgToGPU<imgT>(image);
 	imgT *blurredImage = gaussBlurr<imgT>(grayValueImage, image.width(), image.height(), sigma);
-	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
+	imgT *gradientStrengthImage = computeGradientStrength<imgT>(blurredImage, image.width(), image.height());
 	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), relativeThreshold);
 
 	assertCheck(cudaFree(grayValueImage));

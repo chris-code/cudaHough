@@ -10,7 +10,7 @@
 using namespace cimg_library;
 
 template<typename imgT, typename accuT, typename paramT>
-void execute(std::string &filename, std::string &resultPath, double threshold, long excludeRadius,
+void execute(std::string &filename, std::string &resultPath, double threshold, double sigma, long excludeRadius,
 	long linesToExtract) {
 	// load image from file and convert to gray value
 	CImg<imgT> inputImage(filename.c_str());
@@ -20,7 +20,7 @@ void execute(std::string &filename, std::string &resultPath, double threshold, l
 	// compute the binary image in the preprocess()-method and measure time
 	std::cout << "Preprocessing..." << std::flush;
 	clock_t begin = std::clock();
-	CImg<bool> binaryImg = hough::preprocess<imgT>(inputImage, threshold);
+	CImg<bool> binaryImg = hough::preprocess<imgT>(inputImage, threshold, sigma);
 	clock_t end = std::clock();
 	std::cout << " (" << double(end - begin) / CLOCKS_PER_SEC << "s)" << std::endl;
 
@@ -67,21 +67,26 @@ int main(int argc, char **argv) {
 	std::string filename;
 	std::string resultPath = "./";
 	double threshold = 0.5;
+	double sigma = 2.0;
 	long excludeRadius = 20;
 	long linesToExtract = 16;
 
 	struct option options[] = {
 		{"threshold", required_argument, NULL, 't'},
+		{"sigma", required_argument, NULL, 's'},
 		{"exclude-radius", required_argument, NULL, 'e'},
 		{"lines", required_argument, NULL, 'l'},
 		{"output-path", required_argument, NULL, 'o'},
 		{0, 0, NULL, 0}
 	};
 	char option;
-	while ((option = getopt_long(argc, argv, "t:e:l:o:", options, NULL)) != -1) {
+	while ((option = getopt_long(argc, argv, "t:s:e:l:o:", options, NULL)) != -1) {
 		switch (option) {
 			case 't':
 				threshold = std::atof(optarg);
+				break;
+			case 's':
+				sigma = std::atof(optarg);
 				break;
 			case 'e':
 				excludeRadius = std::atol(optarg);
@@ -93,10 +98,10 @@ int main(int argc, char **argv) {
 				resultPath = optarg;
 				break;
 			case '?':
-				if (optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
-					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
+				if (optopt == 't' || optopt == 's' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
+					std::cerr << "Option -%" << char(optopt) << " requires an argument." << std::endl;
 				} else {
-					std::cerr << "Unknown option " << optopt << std::endl;
+					std::cerr << "Unknown option " << char(optopt) << std::endl;
 				}
 				exit(EXIT_FAILURE);
 				break;
@@ -110,6 +115,6 @@ int main(int argc, char **argv) {
 	}
 	filename = argv[optind];
 
-	execute<double, long, double>(filename, resultPath, threshold, excludeRadius, linesToExtract);
+	execute<double, long, double>(filename, resultPath, threshold, sigma, excludeRadius, linesToExtract);
 	return EXIT_SUCCESS;
 }
