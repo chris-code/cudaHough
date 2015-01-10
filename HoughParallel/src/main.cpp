@@ -61,20 +61,25 @@ int main(int argc, char **argv) {
 	std::string filename;
 	std::string resultPath = "./";
 	double threshold = 0.5;
+	double sigma = 2.0;
 	long excludeRadius = 20;
 	long linesToExtract = 16;
 
 	struct option options[] = {
 		{"threshold", required_argument, NULL, 't'},
+		{"sigma", required_argument, NULL, 's'},
 		{"exclude-radius", required_argument, NULL, 'e'},
 		{"lines", required_argument, NULL, 'l'},
 		{"output-path", required_argument, NULL, 'o'},
 		{0, 0, NULL, 0}};
 	char option;
-	while ((option = getopt_long(argc, argv, "t:e:l:o:", options, NULL)) != -1) {
+	while ((option = getopt_long(argc, argv, "t:s:e:l:o:", options, NULL)) != -1) {
 		switch (option) {
 			case 't':
 				threshold = std::atof(optarg);
+				break;
+			case 's':
+				sigma = std::atof(optarg);
 				break;
 			case 'e':
 				excludeRadius = std::atol(optarg);
@@ -86,7 +91,7 @@ int main(int argc, char **argv) {
 				resultPath = optarg;
 				break;
 			case '?':
-				if (optopt == 't' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
+				if (optopt == 't' || optopt == 's' || optopt == 'e' || optopt == 'l' || optopt == 'o') {
 					std::cerr << "Option -%" << optopt << " requires an argument." << std::endl;
 				} else {
 					std::cerr << "Unknown option " << optopt << std::endl;
@@ -102,8 +107,6 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	filename = argv[optind];
-
-	double sigma = 2.0;
 
 	execute<double, long, double>(filename, resultPath, threshold, sigma, excludeRadius, linesToExtract);
 	return EXIT_SUCCESS;

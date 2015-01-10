@@ -70,6 +70,7 @@ __global__ void convolve(T *result, T *image, long imgWidth, long imgHeight, T *
 }
 
 //	Note that this kernel takes sigma^2 as an argument.
+//	TODO this kernel could actually just take one dimension instead of width and height. See if this would run faster.
 template<typename imgT>
 __global__ void generateGauss(imgT *result, long width, long height, imgT sigma2, imgT normalizationTerm) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -109,20 +110,6 @@ imgT * gaussBlurr(imgT *image, long width, long height, imgT sigma) {
 	convolve<imgT> <<<blocks, threads>>>(result, image, width, height, gauss, filterWidth, filterHeight,
 		filterWidth / 2, filterHeight / 2);
 	assertCheck(cudaGetLastError());
-
-	CImg<imgT> cpuResult = gpuToCImg<imgT>(result, width, height, false);
-	CImg<imgT> cpuGauss = gpuToCImg<imgT>(gauss, filterWidth, filterHeight, false);
-	std::cout << std::endl;
-	for (long y = 0; y < cpuGauss.height(); ++y) {
-		for (long x = 0; x < cpuGauss.width(); ++x) {
-			std::cout << cpuGauss(x, y, 0, 0) << " ";
-		}
-		std::cout << std::endl;
-	}
-	std::cout << std::endl;
-	CImgDisplay resultDisplay(cpuResult, "Blurred image", 1);
-	while (!resultDisplay.is_closed())
-		resultDisplay.wait();
 
 	assertCheck(cudaFree(gauss));
 	return result;
@@ -210,7 +197,7 @@ bool * binarize(T *image, long width, long height, T relativeThreshold) {
 template<typename imgT>
 bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold, imgT sigma) {
 	imgT *grayValueImage = cImgToGPU<imgT>(image);
-	imgT *blurredImage = gaussBlurr<imgT>(grayValueImage, image.width(), image.height(), sigma); // TODO
+	imgT *blurredImage = gaussBlurr<imgT>(grayValueImage, image.width(), image.height(), sigma);
 	imgT *gradientStrengthImage = computeGradientStrength<imgT>(grayValueImage, image.width(), image.height());
 	bool *binaryImage = binarize<imgT>(gradientStrengthImage, image.width(), image.height(), relativeThreshold);
 
