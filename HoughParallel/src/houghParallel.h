@@ -3,10 +3,10 @@
 #include <vector>
 #include <CImg.h>
 
-using namespace cimg_library;
+using namespace std;
 
 template<typename imgT>
-CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory = true);
+cimg_library::CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory = true);
 
 namespace cudaHough {
 	template<typename paramT>
@@ -43,16 +43,17 @@ namespace cudaHough {
 	};
 
 	template<typename imgT>
-	bool * preprocess(CImg<imgT> &image, imgT binarizationThreshold, imgT sigma);
+	bool * preprocess(cimg_library::CImg<imgT> &image, imgT binarizationThreshold, imgT sigma);
 
 	template<typename accuT, typename paramT>
 	accuT * transform(bool *binaryImage, long width, long height, HoughParameterSet<paramT> &hps);
 
 	template<typename accuT, typename paramT>
-	std::vector<std::pair<paramT, paramT> > extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
+	vector<pair<paramT, paramT> > extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
 		long excludeRadius, HoughParameterSet<paramT> &hps);
 
 	template<typename imgT, typename accuT, typename paramT>
-	std::vector<std::pair<paramT, paramT> > extractStrongestLines(CImg<imgT> &image, HoughParameterSet<paramT> &hps,
-		imgT binarizationThreshold, imgT sigma, long linesToExtract, long excludeRadius);
+	vector<pair<paramT, paramT> > extractStrongestLines(cimg_library::CImg<imgT> &image,
+		HoughParameterSet<paramT> &hps, imgT binarizationThreshold, imgT sigma, long linesToExtract,
+		long excludeRadius);
 }

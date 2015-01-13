@@ -43,8 +43,8 @@ CImg<T> binaryToColorImg(const CImg<bool> &binaryImg) {
 }
 
 // this methods draws one line in Theta-r-form with the given color in the passed image
-template <typename T>
-void drawLine(CImg<T> &image, const double theta, const double r, T *color) {
+template <typename T, typename precisionT>
+void drawLine(CImg<T> &image, const precisionT theta, const precisionT r, T *color) {
 	// It's a rather horizontal line (cos(Theta) could be 0)
 	if ((theta >= cimg::PI / 4 && theta <= cimg::PI * 3 / 4)
 			|| (theta >= cimg::PI * 5 / 4 && theta <= cimg::PI * 7 / 4)) {
@@ -79,8 +79,8 @@ void drawLine(CImg<T> &image, const double theta, const double r, T *color) {
 }
 
 // this method receives some lines in Theta-r-form and draws them in the passed image
-template <typename T>
-void drawLines(CImg<T> &image, std::vector<std::pair<double, double> > &lines, T *color) {
+template <typename T, typename precisionT>
+void drawLines(CImg<T> &image, std::vector<std::pair<precisionT, precisionT> > &lines, T *color) {
 	// iterate over lines
 	for (long i = 0; i < long(lines.size()); i++) {
 		// draw line

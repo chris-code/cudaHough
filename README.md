@@ -4,7 +4,8 @@ cudaHough
 The purpose of this project is to realize a GPU-Accellerated version of the Hough-
 Transform by using the *CUDA*-environment with *C++*. To handle load/store and
 displaying of images, the *CImg* library is used. Currently, a version for detecting
-straight lines is implemented as both a sequential and a parallel version.
+straight lines is implemented as both a sequential and a parallel version. Results are
+not guaranteed to be identical across both versions
 
 The transform takes a parameter of type HoughParameterSet. This object contains the
 dimensions of Theta (minTheta, maxTheta), dimensions of R (minR, maxR), and the

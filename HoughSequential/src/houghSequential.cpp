@@ -1,5 +1,8 @@
 #include <algorithm>
-#include "houghTransform.h"
+#include "houghSequential.h"
+
+
+// --------------------------------------------- Helper functions ---------------------------------------------
 
 
 // this methods convolves an gray value image with a filter using the Wrap-Around approach
@@ -196,6 +199,9 @@ bool compareLines(std::vector<long> v1, std::vector<long> v2)
 }
 
 
+// --------------------------------------------- Exported functions ---------------------------------------------
+
+
 template <typename imgT>
 CImg<bool> hough::preprocess(CImg<imgT>& image, imgT relativeThreshold, imgT sigma)
 {
@@ -284,7 +290,8 @@ std::vector< std::pair<paramT, paramT> > hough::extractStrongestLines(CImg<accuT
 	return kBest;
 }
 
-// Instantiate template methods so they are available to the compiler
+// --------------------------------------------- Instantiations ---------------------------------------------
+
 template CImg<bool> hough::preprocess(CImg<float>& image, float relativeThreshold, float sigma);
 template CImg<bool> hough::preprocess(CImg<double>& image, double relativeThreshold, double sigma);
 template CImg<long> hough::transform(CImg<bool>& binaryImg, hough::HoughParameterSet<float> & p);

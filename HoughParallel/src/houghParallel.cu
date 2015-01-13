@@ -2,18 +2,21 @@
 #include <thrust/host_vector.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
-#include "houghTransform.h"
+#include "houghParallel.h"
 
 #define assertCheck(arg) { errorCheck((arg), __FILE__, __LINE__); }
 void errorCheck(const cudaError_t returnCode, const char *file, const long line) {
 	if (returnCode != cudaSuccess) {
-		std::cerr << cudaGetErrorString(returnCode) << " occurred at " << line << " in file " << file << std::endl;
+		cerr << cudaGetErrorString(returnCode) << " occurred at " << line << " in file " << file << endl;
 		exit(EXIT_FAILURE);
 	}
 }
 
+// --------------------------------------------- Kernels ---------------------------------------------
+
 template<typename T>
-__global__ void convolveGPU(T *result, T *image, long imgWidth, long imgHeight, T *filter, long filWidth, long filHeight,
+__global__ void convolveGPU(T *result, T *image, long imgWidth, long imgHeight, T *filter, long filWidth,
+	long filHeight,
 	long filAnchorX, long filAnchorY) {
 	long x = blockIdx.x * blockDim.x + threadIdx.x;
 	long y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -124,8 +127,10 @@ __global__ void isolateLocalMaximaGPU(T *accumulatorArray, T *localMaxima, long 
 	}
 }
 
+// --------------------------------------------- Helper functions ---------------------------------------------
+
 template<typename T>
-T * cImgToGPU(CImg<T> &image) {
+T * cImgToGPU(cimg_library::CImg<T> &image) {
 	T *gpuImage;
 	assertCheck(cudaMalloc(&gpuImage, image.height() * image.width() * sizeof(T)));
 	assertCheck(cudaMemcpy(gpuImage, image.data(), image.height() * image.width() * sizeof(T), cudaMemcpyHostToDevice));
@@ -133,12 +138,12 @@ T * cImgToGPU(CImg<T> &image) {
 }
 
 template<typename imgT>
-CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory) {
+cimg_library::CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory) {
 	imgT *cpuData = (imgT*) malloc(width * height * sizeof(imgT));
 	assertCheck(cudaMemcpy(cpuData, image, width * height * sizeof(imgT), cudaMemcpyDeviceToHost));
 	if (freeMemory)
 		assertCheck(cudaFree(image));
-	CImg<imgT> cpuImg(cpuData, width, height);
+	cimg_library::CImg<imgT> cpuImg(cpuData, width, height);
 	free(cpuData);
 	return cpuImg;
 }
@@ -249,8 +254,10 @@ thrust::device_vector<long> getSortedIndices(T *maxima, long width, long height)
 	return indices; // TODO don't return thrust::device_vector
 }
 
+// --------------------------------------------- Exported functions ---------------------------------------------
+
 template<typename imgT>
-bool * cudaHough::preprocess(CImg<imgT> &image, imgT relativeThreshold, imgT sigma) {
+bool * cudaHough::preprocess(cimg_library::CImg<imgT> &image, imgT relativeThreshold, imgT sigma) {
 	imgT *grayValueImage = cImgToGPU<imgT>(image);
 	imgT *blurredImage = gaussBlurr<imgT>(grayValueImage, image.width(), image.height(), sigma);
 	imgT *gradientStrengthImage = computeGradientStrength<imgT>(blurredImage, image.width(), image.height());
@@ -284,14 +291,14 @@ accuT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPa
 }
 
 template<typename accuT, typename paramT>
-std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
+vector<pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *accumulatorArray, long linesToExtract,
 	long excludeRadius, HoughParameterSet<paramT> &hps) {
 	accuT *localMaxima = isolateLocalMaxima(accumulatorArray, hps.getDimTheta(), hps.getDimR(), excludeRadius);
 	thrust::device_vector<long> sortedIndices = getSortedIndices<accuT>(localMaxima, hps.getDimTheta(), hps.getDimR());
 	thrust::host_vector<long> cpuSortedIndices(linesToExtract);
 	thrust::copy(sortedIndices.begin(), sortedIndices.begin() + linesToExtract, cpuSortedIndices.begin());
 
-	std::vector<std::pair<paramT, paramT> > bestLines;
+	vector<pair<paramT, paramT> > bestLines;
 	for (long i = 0; i < linesToExtract; i++) {
 		long x = cpuSortedIndices[i] % hps.getDimTheta();
 		long y = cpuSortedIndices[i] / hps.getDimTheta();
@@ -299,7 +306,7 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *
 		double theta = hps.minTheta + hps.getThetaStepSize() * x;
 		double r = hps.minR + hps.getRstepSize() * y;
 
-		bestLines.push_back(std::make_pair<double, double>(theta, r));
+		bestLines.push_back(make_pair<double, double>(theta, r));
 	}
 	assertCheck(cudaFree(localMaxima));
 
@@ -307,11 +314,11 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(accuT *
 }
 
 template<typename imgT, typename accuT, typename paramT>
-std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(CImg<imgT> &image,
+vector<pair<paramT, paramT> > cudaHough::extractStrongestLines(cimg_library::CImg<imgT> &image,
 	HoughParameterSet<paramT> &hps, imgT binarizationThreshold, imgT sigma, long linesToExtract, long excludeRadius) {
 	bool *binaryImage = preprocess<imgT>(image, binarizationThreshold, sigma);
 	accuT *accumulatorArray = transform<accuT, paramT>(binaryImage, image.width(), image.height(), hps);
-	std::vector<std::pair<paramT, paramT> > strongestLines = extractStrongestLines<accuT, paramT>(accumulatorArray,
+	vector<pair<paramT, paramT> > strongestLines = extractStrongestLines<accuT, paramT>(accumulatorArray,
 		linesToExtract, excludeRadius, hps);
 
 	assertCheck(cudaFree(binaryImage));
@@ -320,22 +327,25 @@ std::vector<std::pair<paramT, paramT> > cudaHough::extractStrongestLines(CImg<im
 	return strongestLines;
 }
 
-// Instantiate template methods so they are available to the compiler
-template CImg<bool> gpuToCImg(bool *image, long width, long height, bool freeMemory);
-template CImg<long> gpuToCImg(long *image, long width, long height, bool freeMemory);
-template CImg<float> gpuToCImg(float *image, long width, long height, bool freeMemory);
-template CImg<double> gpuToCImg(double *image, long width, long height, bool freeMemory);
-template bool * cudaHough::preprocess<float>(CImg<float> &image, float threshold, float sigma);
-template bool * cudaHough::preprocess<double>(CImg<double> &image, double threshold, double sigma);
-template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<float> &hps);
-template long * cudaHough::transform(bool *binaryImage, long width, long height, HoughParameterSet<double> &hps);
-template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines(long *accumulatorArray,
+// --------------------------------------------- Instantiations ---------------------------------------------
+
+template cimg_library::CImg<bool> gpuToCImg<bool>(bool *image, long width, long height, bool freeMemory);
+template cimg_library::CImg<long> gpuToCImg<long>(long *image, long width, long height, bool freeMemory);
+template cimg_library::CImg<float> gpuToCImg<float>(float *image, long width, long height, bool freeMemory);
+template cimg_library::CImg<double> gpuToCImg<double>(double *image, long width, long height, bool freeMemory);
+template bool * cudaHough::preprocess<float>(cimg_library::CImg<float> &image, float threshold, float sigma);
+template bool * cudaHough::preprocess<double>(cimg_library::CImg<double> &image, double threshold, double sigma);
+template long * cudaHough::transform<long, float>(bool *binaryImage, long width, long height,
+	HoughParameterSet<float> &hps);
+template long * cudaHough::transform<long, double>(bool *binaryImage, long width, long height,
+	HoughParameterSet<double> &hps);
+template vector<pair<float, float> > cudaHough::extractStrongestLines<long, float>(long *accumulatorArray,
 	long linesToExtract, long excludeRadius, HoughParameterSet<float> &hps);
-template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines(long *accumulatorArray,
+template vector<pair<double, double> > cudaHough::extractStrongestLines<long, double>(long *accumulatorArray,
 	long linesToExtract, long excludeRadius, HoughParameterSet<double> &hps);
-template std::vector<std::pair<float, float> > cudaHough::extractStrongestLines<float, long, float>(
-	CImg<float> &image, HoughParameterSet<float> &hps, float threshold, float sigma, long linesToExtract,
+template vector<pair<float, float> > cudaHough::extractStrongestLines<float, long, float>(
+	cimg_library::CImg<float> &image, HoughParameterSet<float> &hps, float threshold, float sigma, long linesToExtract,
 	long excludeRadius);
-template std::vector<std::pair<double, double> > cudaHough::extractStrongestLines<double, long, double>(
-	CImg<double> &image, HoughParameterSet<double> &hps, double threshold, double sigma, long linesToExtract,
-	long excludeRadius);
+template vector<pair<double, double> > cudaHough::extractStrongestLines<double, long, double>(
+	cimg_library::CImg<double> &image, HoughParameterSet<double> &hps, double threshold, double sigma,
+	long linesToExtract, long excludeRadius);
