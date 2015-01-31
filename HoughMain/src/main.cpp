@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 	long linesToExtract = 16;
 
 	struct option options[] = {
-		{"cuda", no_argument, NULL, 't'},
+		{"cuda", no_argument, NULL, 'c'},
 		{"double", no_argument, NULL, 'd'},
 		{"threshold", required_argument, NULL, 't'},
 		{"sigma", required_argument, NULL, 's'},
