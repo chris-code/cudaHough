@@ -1,0 +1,37 @@
+Title
+Goal of the Hough Transform
+Find contours
+Binarize
+Vote for lines
+Extract strongest lines
+Speed Comparison
+Questions
+
+
+=====================================================0
+
+577 x 600
+
+Parallel:
+
+16 Threads
+Preprocessing... (0.219241s)
+Calculating accumulator array... (0.000104s)
+Extracting strongest lines... (0.919756s)
+
+32 Threads
+Preprocessing... (0.221651s)
+Calculating accumulator array... (0.000104s)
+Extracting strongest lines... (1.34945s)
+
+8 Threads
+Preprocessing... (0.219433s)
+Calculating accumulator array... (0.000103s)
+Extracting strongest lines... (0.813902s)
+
+
+Sequential:
+
+Preprocessing... (0.340823s)
+Calculating accumulator array... (0.254438s)
+Extracting strongest lines... (1.36422s)
