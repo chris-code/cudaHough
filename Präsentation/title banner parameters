@@ -1,0 +1,3 @@
+Title banner created with
+
+optirun --no-xorg HoughMain/Debug/HoughMain -c -d -t 0.3 -s 2 -e 10 -l 6 -o results/ images/highway3.jpg
