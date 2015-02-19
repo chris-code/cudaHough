@@ -150,7 +150,7 @@ cimg_library::CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool fr
 
 template<typename imgT>
 imgT * gaussBlurr(imgT *image, long width, long height, imgT sigma) {
-	dim3 threads(16, 16);
+	dim3 threads(THREADS_PER_DIM, THREADS_PER_DIM);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 
 //	Generate gaussian
@@ -192,7 +192,7 @@ T * computeGradientStrength(T *grayValueImage, long width, long height) {
 	assertCheck(cudaMalloc(&gradientX, width * height * sizeof(T)));
 	assertCheck(cudaMalloc(&gradientY, width * height * sizeof(T)));
 
-	dim3 threads(16, 16);
+	dim3 threads(THREADS_PER_DIM, THREADS_PER_DIM);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	convolveGPU<T> <<<blocks, threads>>>(gradientX, grayValueImage, width, height, sobelX, 3, 3, 1, 1);
 	assertCheck(cudaGetLastError());
@@ -222,7 +222,7 @@ bool * binarize(T *image, long width, long height, T relativeThreshold) {
 	bool *binaryImage;
 	assertCheck(cudaMalloc(&binaryImage, width * height * sizeof(bool)));
 
-	dim3 threads(16, 16);
+	dim3 threads(THREADS_PER_DIM, THREADS_PER_DIM);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	binarizeGPU<T> <<<blocks, threads>>>(binaryImage, image, width, height, absoluteThreshold);
 	assertCheck(cudaGetLastError());
@@ -235,7 +235,7 @@ T * isolateLocalMaxima(T *accumulatorArray, long width, long height, long exclud
 	T *localMaxima;
 	assertCheck(cudaMalloc(&localMaxima, width * height * sizeof(T)));
 
-	dim3 threads(16, 16);
+	dim3 threads(THREADS_PER_DIM, THREADS_PER_DIM);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	isolateLocalMaximaGPU<T> <<<blocks, threads>>>(accumulatorArray, localMaxima, width, height, excludeRadius);
 	assertCheck(cudaGetLastError());
@@ -280,7 +280,7 @@ accuT * cudaHough::transform(bool *binaryImage, long width, long height, HoughPa
 	assertCheck(cudaMalloc(&accumulatorArray, dimTheta * dimR * sizeof(accuT)));
 	cudaMemset(accumulatorArray, 0, dimTheta * dimR * sizeof(accuT));
 
-	dim3 threads(16, 16);
+	dim3 threads(THREADS_PER_DIM, THREADS_PER_DIM);
 	dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 	computeAccumulatorArrayGPU<accuT, paramT> <<<blocks, threads>>>(binaryImage, width, height, borderExclude,
 		accumulatorArray, hps.minTheta, hps.maxTheta, hps.getThetaStepSize(), hps.stepsPerRadian, hps.minR,

@@ -5,6 +5,8 @@
 
 using namespace std;
 
+const long THREADS_PER_DIM = 8;
+
 template<typename imgT>
 cimg_library::CImg<imgT> gpuToCImg(imgT *image, long width, long height, bool freeMemory = true);
 
